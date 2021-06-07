@@ -1,0 +1,819 @@
+ DOVELAS (BPIP INPUT FILE Produced by GAUSS)                                   
+
+                              BPIP (Dated: 04274)
+ DATE :  6/ 7/2021
+ TIME : 16: 7: 9
+ DOVELAS (BPIP INPUT FILE Produced by GAUSS)                                   
+
+ ============================
+ BPIP PROCESSING INFORMATION:
+ ============================
+
+   The P  flag has been set for preparing downwash related data
+          for a model run utilizing the PRIME algorithm.
+
+   Inputs entered in METERS     will be converted to meters using 
+    a conversion factor of    1.0000.  Output will be in meters.
+
+   UTMP is set to UTMN.  The input is assumed to be in a local
+    X-Y coordinate system as opposed to a UTM coordinate system.
+    True North is in the positive Y direction.
+
+   Plant north is set to   0.00 degrees with respect to True North.  
+
+
+
+
+ ==============
+ INPUT SUMMARY:
+ ==============
+
+
+ Number of buildings to be processed :   1
+
+
+ BLDG2    has 1 tier(s) with a base elevation of    0.00 METERS    
+ BUILDING  TIER  BLDG-TIER  TIER   NO. OF      CORNER   COORDINATES
+   NAME   NUMBER   NUMBER  HEIGHT  CORNERS        X           Y
+
+ BLDG2       1        1      8.00     5
+                                             371572.99  6174192.28 meters
+                                             371576.49  6174171.59 meters
+                                             371676.04  6174188.42 meters
+                                             371672.54  6174209.11 meters
+                                             371572.99  6174192.28 meters
+
+ Number of stacks to be processed :   3
+
+                    STACK            STACK   COORDINATES
+  STACK NAME     BASE  HEIGHT          X           Y
+
+  CALD1          9.00    4.53 METERS    
+                                  371654.70  6174202.42 meters
+  CALD2          4.00    3.53 METERS    
+                                  371411.90  6174250.03 meters
+  CALD3          8.00    4.31 METERS    
+                                  371576.49  6174171.59 meters
+
+
+ The following lists the stacks that have been identified
+ as being atop the noted building-tiers.
+
+          STACK            BUILDING         TIER
+          NAME      NO.    NAME        NO.  NO.
+          CALD1      1     BLDG2        1     1
+
+
+                     Overall GEP Summary Table
+                          (Units: meters)
+
+
+ StkNo:  1  Stk Name:CALD1    Stk Ht:   4.53 Prelim. GEP Stk.Ht:   65.00
+            GEP:  BH:   8.00  PBW:   21.00             *Eqn1 Ht:   11.00
+          *adjusted for a Stack-Building elevation difference of    9.00
+  No. of Tiers affecting Stk:  1  Direction occurred:   80.25
+   Bldg-Tier nos. contributing to GEP:   1
+
+
+ StkNo:  2  Stk Name:CALD2    Stk Ht:   3.53 Prelim. GEP Stk.Ht:   65.00
+            GEP:  BH:   0.00  PBW:    0.00             *Eqn1 Ht:    0.00
+      No tiers affect this stack.
+
+
+ StkNo:  3  Stk Name:CALD3    Stk Ht:   4.31 Prelim. GEP Stk.Ht:   65.00
+            GEP:  BH:   8.00  PBW:   21.00             *Eqn1 Ht:   12.00
+          *adjusted for a Stack-Building elevation difference of    8.00
+  No. of Tiers affecting Stk:  1  Direction occurred:   80.50
+   Bldg-Tier nos. contributing to GEP:   1
+
+
+
+
+                     Summary By Direction Table
+                          (Units:  meters)
+
+ Dominate stand alone tiers:
+
+
+ Drtcn:  10.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW: 102.19  PBL:  53.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -44.00  YADJ:   27.53
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW: 102.19  PBL:  53.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:    0.00  YADJ:  -44.09
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn:  20.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  98.12  PBL:  68.00  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -56.00  YADJ:   24.19
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  98.12  PBL:  68.00  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:    0.00  YADJ:  -38.69
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn:  30.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  91.25  PBL:  80.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -66.00  YADJ:   20.12
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  91.25  PBL:  80.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:    0.00  YADJ:  -32.12
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn:  40.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  81.25  PBL:  90.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -74.00  YADJ:   15.12
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  81.25  PBL:  90.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:    0.00  YADJ:  -24.88
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn:  50.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  69.50  PBL:  97.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -79.50  YADJ:    9.75
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  69.50  PBL:  97.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:    0.00  YADJ:  -16.75
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn:  60.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  55.00  PBL: 102.00  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -83.25  YADJ:    4.50
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  55.00  PBL: 102.00  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:    0.00  YADJ:   -8.00
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn:  70.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  39.00  PBL: 103.25  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -84.25  YADJ:   -1.00
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  39.00  PBL: 103.25  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:    0.00  YADJ:    1.50
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn:  80.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  21.50  PBL: 101.12  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -82.38  YADJ:   -6.75
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  21.50  PBL: 101.12  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:    0.00  YADJ:   10.25
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn:  90.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  37.50  PBL: 103.06  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -81.72  YADJ:  -12.25
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  37.50  PBL: 103.06  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:   -3.53  YADJ:   18.75
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 100.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  53.50  PBL: 102.12  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -78.69  YADJ:  -17.25
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  53.50  PBL: 102.12  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:   -7.12  YADJ:   26.75
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 110.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  68.00  PBL:  98.12  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -73.38  YADJ:  -21.50
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  68.00  PBL:  98.12  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -10.50  YADJ:   34.50
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 120.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  80.50  PBL:  91.25  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -66.00  YADJ:  -25.75
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  80.50  PBL:  91.25  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -13.75  YADJ:   40.25
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 130.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  90.50  PBL:  81.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -56.00  YADJ:  -28.75
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  90.50  PBL:  81.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -16.00  YADJ:   45.25
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 140.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  98.00  PBL:  69.00  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -44.50  YADJ:  -31.00
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  98.00  PBL:  69.00  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -18.00  YADJ:   49.00
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 150.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW: 102.00  PBL:  55.00  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -32.00  YADJ:  -32.00
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW: 102.00  PBL:  55.00  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -19.50  YADJ:   51.25
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 160.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW: 103.00  PBL:  39.00  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -18.50  YADJ:  -32.50
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW: 103.00  PBL:  39.00  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -21.00  YADJ:   51.50
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 170.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW: 101.12  PBL:  21.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:   -4.50  YADJ:  -31.81
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW: 101.12  PBL:  21.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -21.50  YADJ:   50.56
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 180.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW: 103.06  PBL:  37.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:   -6.50  YADJ:  -30.19
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW: 103.06  PBL:  37.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -37.50  YADJ:   48.00
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 190.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW: 102.12  PBL:  53.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:   -9.50  YADJ:  -27.62
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW: 102.12  PBL:  53.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -53.50  YADJ:   44.00
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 200.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  98.12  PBL:  68.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -12.50  YADJ:  -24.19
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  98.12  PBL:  68.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -68.50  YADJ:   38.69
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 210.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  91.25  PBL:  80.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -15.00  YADJ:  -19.88
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  91.25  PBL:  80.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -81.00  YADJ:   32.38
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 220.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  81.50  PBL:  90.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -16.50  YADJ:  -15.25
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  81.50  PBL:  90.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -90.50  YADJ:   24.75
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 230.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  69.50  PBL:  97.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -18.00  YADJ:  -10.25
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  69.50  PBL:  97.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -98.00  YADJ:   16.25
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 240.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  55.00  PBL: 101.75  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -18.50  YADJ:   -4.50
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  55.00  PBL: 101.75  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ: -101.75  YADJ:    7.50
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 250.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  39.00  PBL: 103.25  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -19.25  YADJ:    1.00
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  39.00  PBL: 103.25  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ: -103.25  YADJ:   -1.50
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 260.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  21.50  PBL: 101.12  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -18.75  YADJ:    6.75
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  21.50  PBL: 101.12  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ: -101.12  YADJ:  -10.25
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 270.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  37.50  PBL: 103.06  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -21.38  YADJ:   11.75
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  37.50  PBL: 103.06  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -99.56  YADJ:  -19.25
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 280.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  53.50  PBL: 102.12  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -23.44  YADJ:   17.25
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  53.50  PBL: 102.12  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -95.06  YADJ:  -27.25
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 290.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  68.00  PBL:  98.25  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -25.00  YADJ:   22.00
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  68.00  PBL:  98.25  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -87.88  YADJ:  -34.00
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 300.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  80.50  PBL:  91.00  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -25.75  YADJ:   25.75
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  80.50  PBL:  91.00  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -77.75  YADJ:  -40.25
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 310.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  90.50  PBL:  81.25  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -25.25  YADJ:   28.25
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  90.50  PBL:  81.25  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -65.25  YADJ:  -45.75
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 320.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW:  97.50  PBL:  69.00  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -24.50  YADJ:   30.75
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW:  97.50  PBL:  69.00  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -51.00  YADJ:  -48.75
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 330.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW: 102.00  PBL:  55.00  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -23.00  YADJ:   32.25
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW: 102.00  PBL:  55.00  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -35.50  YADJ:  -51.00
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 340.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW: 103.00  PBL:  39.00  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -20.50  YADJ:   32.50
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW: 103.00  PBL:  39.00  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -18.00  YADJ:  -51.50
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 350.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW: 101.12  PBL:  22.00  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -17.50  YADJ:   31.94
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW: 101.12  PBL:  22.00  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:   -0.50  YADJ:  -50.44
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+ Drtcn: 360.00
+
+ StkNo:  1  Stk Name:CALD1                             Stack Ht:    4.53
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   11.00
+     Single tier MAX:  BH:   8.00  PBW: 103.06  PBL:  37.50  *Wake Effect Ht:   11.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:  -30.50  YADJ:   30.16
+
+          *adjusted for a Stack-Building elevation difference of    9.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+ StkNo:  2  Stk Name:CALD2                             Stack Ht:    3.53
+                 GEP:  BH:   0.00  PBW:   0.00   *Equation 1 Ht:    0.00
+     No single tier affects this stack for this direction.
+ StkNo:  3  Stk Name:CALD3                             Stack Ht:    4.31
+                 GEP:  BH:   8.00  PBW:  21.00   *Equation 1 Ht:   12.00
+     Single tier MAX:  BH:   8.00  PBW: 103.06  PBL:  37.50  *Wake Effect Ht:   12.00
+     Relative Coordinates of Projected Width Mid-point: XADJ:    0.50  YADJ:  -48.03
+
+          *adjusted for a Stack-Building elevation difference of    8.00
+                BldNo:  1  Bld Name:BLDG2     TierNo:  1
+
+
+ Dominant combined buildings:  None
