@@ -14,4 +14,3 @@ all: $(OBJECTS)
 
 clean:
 	rm -rf *.o *.mod *.exe
-
