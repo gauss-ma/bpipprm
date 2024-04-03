@@ -55,6 +55,7 @@ subroutine writeOUT(oT,sT,title,outputFileName)
         WRITE(2,"( '     Note:  Criteria for determining stack heights for modeling',' emission') ")
         WRITE(2,"( '     limitations for a source can be found in Table 3.1 of the')              ")
         WRITE(2,"( '     GEP Technical Support Document.')                                        ")
+        WRITE(2,"( '                                    ')                                        ")
         WRITE(2,"(/,/,/)")
 
         !DATE (AGAIN)

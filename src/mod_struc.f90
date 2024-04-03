@@ -3,12 +3,10 @@ module struc
 
 type tier
         !integer :: nn   !# nodes
-        !real,allocatable :: xy(:,:)                !coords 
-        double precision,allocatable :: xy(:,:)                !coords 
+        double precision,allocatable :: xy(:,:)    !coords 
         real :: h                                  !height  (leido del .inp) (NO CAMBIA)
         !proyectados:
-        !real,allocatable :: xy2(:,:)       !coords (cambia para c/wdir)
-        double precision,allocatable :: xy2(:,:)       !coords (cambia para c/wdir)
+        double precision,allocatable :: xy2(:,:)   !coords (cambia para c/wdir)
         real :: xmin,xmax,ymin,ymax!               (cambia para c/wdir)
         real :: hgt,wid,len   !height,width,length (cambia para c/wdir)
         real :: L             !L: min{ wid , hgt } (cambia para c/wdir)
