@@ -9,7 +9,7 @@ implicit none
 integer :: i,j,k,d           !indices(para: stacks,buildings,tiers,wdirs)
 
 !global
-double precision, parameter :: pi=3.141592653589793_8
+double precision, parameter :: pi=3.141593 !3.141592653589793_8
 double precision, parameter :: deg2rad=2*pi/360.0
 character(24),    parameter :: inputFileName="bpip.inp"
 character(24),    parameter :: outputFileName="bpip.out"
@@ -38,17 +38,18 @@ allocate(sTable(size(S)))   !allocatar tabla de stacks
 !MAIN----------------------------------------------------------------
 DO d=1,36,1 !for each wdir (c/10 grados)
      print '("      Wind flow passing", I4," degree direction.")', d*10 
-     wdir=(360-d*10)*deg2rad   !wdir [rad]
+     wdir=(360.0-d*10.0)*deg2rad   !wdir [rad]
 
      call rotar(B,S,wdir)  !rotar coordenadas según wdir
 
      DO i=1,size(S),1 !for each stack
          refGSH=0.0; refWID=0.0; tmax=0; bmax=0
+
          DO j=1,size(B),1 !for each building
              DO k=1,size(B(j)%t),1 !for each tier
                     
-                call setTierProyectedBoundary(B(j)%T(k))  ! xmin,xmax,ymin,ymax
-                call setTierValues(B(j)%T(k))             ! tier: wid len hgt L
+                call setTierProyectedBoundary(B(j)%T(k))  ! calc tier: xmin,xmax,ymin,ymax
+                call setTierValues(B(j)%T(k))             ! calc tier: wid len hgt L
 
                 !check si tier afecta stack (adentro de 5L y SIZ)
                 if ( isInsideL5(S(i),B(j)%T(k)) .AND. isInsideSIZ(S(i), B(j)%T(k)) ) then
@@ -56,16 +57,12 @@ DO d=1,36,1 !for each wdir (c/10 grados)
                     call mergeCloseTiers(B(j)%T(k),B,k,B(j)%nombre)
                     call calcGepStackHeight(B(j)%z0, B(j)%T(k), S(i)) !calc: GSH, XBADJ, YBADJ
                 else 
-                   !if ( .not. isInsideSIZ(S(i), B(j)%T(k)) ) then
-                   !   print*,"Stack not in SIZ!", S(i)%nombre,B(j)%nombre
-                   !endif
-                   !set all tier's params = 0.0
-                   call nullifyTier(B(j)%T(k))
+                   call nullifyTier(B(j)%T(k)) !set all tier's params = 0.0, (so it is not considered)
                 endif
                 
                 !guardar el tier de máximo GSH, (si hay dos con == GSH) quedarme con el de narrower width
                 if ( refGSH < B(j)%T(k)%gsh .OR. ( refGSH == B(j)%T(k)%gsh .AND. refWID >= B(j)%T(k)%wid) ) then
-                     refGSH=B(j)%T(k)%gsh       
+                     refGSH=B(j)%T(k)%gsh   
                      refWID=B(j)%T(k)%wid
                      bmax=j      !index building max
                      tmax=k      !index tier     max
@@ -73,7 +70,7 @@ DO d=1,36,1 !for each wdir (c/10 grados)
      
              END DO!tiers
          END DO!buildings
-          
+         print*,"stack, building:",S(i)%nombre,B(bmax)%nombre
          !Agregar a Tablas       
          call addToOutTable(oTable(i),S(i),B(bmax)%T(tmax),d,wdir)
 
@@ -120,10 +117,12 @@ function isInsideSIZ(S,T)       result(SIZ)
         SIZ=(           x_stack .GE. (T%xmin - 0.5*T%L)  )       !*sign(T%xmin,1.0)                                   
         SIZ=(SIZ .AND. (x_stack .LE. (T%xmax + 0.5*T%L) ))       !*sign(T%xmax,1.0)
         SIZ=(SIZ .AND. (y_stack .GE. (T%ymin - 2.0*T%L) ))       !*sign(T%ymin,1.0)
+        !if ( .not. SIZ ) then
         !print*,"Stack xy:",S%xy2(1,:)
         !print*,"Tier min, max, L:",T%xmin, T%xmax,T%ymin,T%ymax,T%L
-        !print*,"SIZ=",SIZ
-endfunction
+        !!print*,"SIZ=",SIZ
+        !end if
+end function
 
 !Calculo de nuevas coordenadas
 subroutine rotar(B,S,wdir)
@@ -144,21 +143,20 @@ subroutine rotar(B,S,wdir)
         do i=1,size(B),1
            do j=1,size(B(i)%t),1
               B(i)%t(j)%xy2(:,1:2)=transpose(  matmul(R,transpose(B(i)%t(j)%xy(:,1:2)) ) ) !proyected coords tier
-              call setTierProyectedBoundary(B(i)%T(j)) !(?) va acá o puede salir del loop?
+              !call setTierProyectedBoundary(B(i)%T(j)) !(?) va acá o puede salir del loop?
            enddo
         enddo
 end subroutine
 
-!Calculo de XMIN XMAX YMIN YMAX
-subroutine setTierProyectedBoundary(T)
+
+subroutine setTierProyectedBoundary(T) !Calculo de XMIN XMAX YMIN YMAX
         implicit none
         type(tier),intent(inout)   :: T
         T%xmin=sngl(minval(T%xy2(:,1)) ); T%xmax=sngl(maxval(T%xy2(:,1)) )
         T%ymin=sngl(minval(T%xy2(:,2)) ); T%ymax=sngl(maxval(T%xy2(:,2)) )
 end subroutine
 
-!Calculo de WID LEN HGT L 
-subroutine setTierValues(T)
+subroutine setTierValues(T)            !Calculo de WID LEN HGT L 
         implicit none
         type(tier),intent(inout)   :: T
         T%wid=T%xmax - T%xmin
@@ -188,7 +186,7 @@ subroutine calcGepStackHeight(Bz0,t,s)!xy,xy2,h,
         type(tier),intent(inout) :: T
         type(stack), intent(inout) :: S
         !calculo widht height L, gepStackHeight para este tier
-        T%gsh  = Bz0 + T%hgt - s%z0 + 1.5*T%L       !Equation 1 (GEP, page 6)
+        T%gsh  = Bz0 + T%hgt - s%z0 + 1.5*T%L             !Equation 1 (GEP, page 6)
         T%xbadj= T%ymin - sngl(s%xy2(1,2))                !XBADJ = YMIN(C) - YPSTK                 !ymin - ystack
         T%ybadj= sngl(s%xy2(1,1)) - (T%xmin + T%wid*0.5)  !YBADJ = XPSTK - (XMIN(C) + TW * 0.5)    !xstack- xmin + tw*0.5
 end subroutine
@@ -220,7 +218,7 @@ end subroutine
 subroutine CombineTiers(t1,t2) 
         implicit none
         type(tier),intent(inout) :: T1
-        type(tier),intent(inout)    :: T2
+        type(tier),intent(inout) :: T2
         T1%xmin=min(T1%xmin, T2%xmin) 
         T1%xmax=max(T1%xmax, T2%xmax)
         T1%ymin=min(T1%ymin, T2%ymin)

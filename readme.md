@@ -1,4 +1,4 @@
-# Bpip PRIME (gauss)
+# Bpip PRIME
 
 > Versión casera de BPIPPRM
 
