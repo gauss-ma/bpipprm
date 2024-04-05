@@ -41,7 +41,8 @@ subroutine readINP(inp_file,B,S,title)
         read(1,*)ns  !#stacks
         allocate(S(ns)) 
         do i=1,ns,1 !read stacks
-                read(1,*) S(i)%nombre, S(i)%z0, S(i)%h, S(i)%xy(1,1), S(i)%xy(1,2)    !name z0 h x y
+                !read(1,*) S(i)%nombre, S(i)%z0, S(i)%h, S(i)%xy(1,1), S(i)%xy(1,2)    !name z0 h x y
+                read(1,*) S(i)%nombre, S(i)%z0, S(i)%h, S(i)%xy(1), S(i)%xy(2)    !name z0 h x y
                 !print*,"STACK: ", S(i)%nombre, S(i)%z0,S(i)%h,S(i)%xy(1,:)          !debug
         end do
 

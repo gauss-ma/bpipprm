@@ -24,7 +24,7 @@ subroutine writeOUT(oT,sT,title,outputFileName)
         WRITE(2,*) 'BPIP PROCESSING INFORMATION:'
         WRITE(2,*) '============================'
         !
-        WRITE(2,"(/3X,'The ',A2,' flag has been set for preparing downwash',' related data',10X)"),'P '
+        WRITE(2,"(/3X,'The ',A2,' flag has been set for preparing downwash',' related data',10X)") 'P '
         WRITE(2,"('          for a model run utilizing the PRIME algorithm.',/)")
         WRITE(2,"(3X,'Inputs entered in ',A10,' will be converted to ','meters using ')") "METERS    "
         WRITE(2,"(3X,' a conversion factor of',F10.4,'.  Output will be in meters.',/)") 1.00
@@ -55,8 +55,7 @@ subroutine writeOUT(oT,sT,title,outputFileName)
         WRITE(2,"( '     Note:  Criteria for determining stack heights for modeling',' emission') ")
         WRITE(2,"( '     limitations for a source can be found in Table 3.1 of the')              ")
         WRITE(2,"( '     GEP Technical Support Document.')                                        ")
-        WRITE(2,"( '                                    ')                                        ")
-        WRITE(2,"(/,/,/)")
+        WRITE(2,"(/,/,/,/)")
 
         !DATE (AGAIN)
         call writeDATE()

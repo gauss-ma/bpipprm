@@ -2,16 +2,16 @@ module struc
 !implicit none
 
 type tier
-        !integer :: nn   !# nodes
-        double precision,allocatable :: xy(:,:)    !coords 
-        real :: h                                  !height  (leido del .inp) (NO CAMBIA)
-        !proyectados:
-        double precision,allocatable :: xy2(:,:)   !coords (cambia para c/wdir)
-        real :: xmin,xmax,ymin,ymax!               (cambia para c/wdir)
-        real :: hgt,wid,len   !height,width,length (cambia para c/wdir)
-        real :: L             !L: min{ wid , hgt } (cambia para c/wdir)
-        real :: gsh           !gep stack height    (cambia para c/stack y wdir)
-        real :: xbadj,ybadj   !gep stack height    (cambia para c/stack y wdir)
+    !integer :: nn   !# nodes
+    double precision,allocatable :: xy(:,:)    !coords 
+    real :: h                                  !height  (leido del .inp) (NO CAMBIA)
+    !proyectados:
+    double precision,allocatable :: xy2(:,:)   !coords (cambia para c/wdir)
+    real :: xmin,xmax,ymin,ymax!               (cambia para c/wdir)
+    real :: hgt,wid,len   !height,width,length (cambia para c/wdir)
+    real :: L             !L: min{ wid , hgt } (cambia para c/wdir)
+    real :: gsh           !gep stack height    (cambia para c/stack y wdir)
+    real :: xbadj,ybadj   !gep stack height    (cambia para c/stack y wdir)
 endtype
 
 type build
@@ -22,10 +22,10 @@ type build
 endtype 
 
 type stack
-        character(8) :: nombre
-        real :: z0, h
-        !real :: xy(1,2),xy2(1,2)
-        double precision :: xy(1,2),xy2(1,2)
+   character(8) :: nombre
+   real :: z0, h
+   !double precision :: xy(1,2), xy2(1,2)
+   double precision :: xy(2), xy2(2)
 endtype
 
 !TABLAS:
