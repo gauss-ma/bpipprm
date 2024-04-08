@@ -26,6 +26,7 @@ type stack
    real :: z0, h
    !double precision :: xy(1,2), xy2(1,2)
    double precision :: xy(2), xy2(2)
+   logical :: affected_by_tier=.false.
 endtype
 
 !TABLAS:

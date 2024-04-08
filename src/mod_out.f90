@@ -42,8 +42,12 @@ subroutine writeOUT(oT,sT,title,outputFileName)
         WRITE(2,"(8X,' Stack    Stack     Base Elevation    GEP**   GEP Stack')")
         WRITE(2,"(8X,' Name     Height    Differences       EQN1    Height Value',//)")
         do i=1,size(sT,1),1
-                WRITE(2,'(8X, A8, 4(F8.2,5X))') st(i)%stkName, st(i)%stkHeight, st(i)%BaseElevDiff, st(i)%GEPEQN1, st(i)%GEPSHV
-                !                                STKN(S),        SH(S),           DIF,                 GEP(S),       PV
+           WRITE(2,'(8X, A8, 4(F8.2,5X))') st(i)%stkName, st(i)%stkHeight, st(i)%BaseElevDiff, st(i)%GEPEQN1, st(i)%GEPSHV
+           !                                STKN(S),        SH(S),           DIF,                 GEP(S),       PV
+           if ( st(i)%GEPEQN1 .LT. 0.0 ) then
+            !                                                   STKN(S),       SH(S),           DIF,                PV
+            WRITE(2,'(8X, A8, F8.2, 10X, "N/A",5X,3(F8.2,5X))') st(i)%stkName, st(i)%stkHeight, st(i)%BaseElevDiff, st(i)%GEPSHV
+           end if
         end do
         WRITE(2,"(/,'   * Results are based on Determinants 1 & 2 on pages 1',' & 2 of the GEP')   ")
         WRITE(2,"( '     Technical Support Document.  Determinant',' 3 may be investigated for')  ")
