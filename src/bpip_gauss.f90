@@ -37,29 +37,29 @@ allocate(oTable(size(S)))   !allocatar tabla de salida
 allocate(sTable(size(S)))   !allocatar tabla de stacks
 !MAIN----------------------------------------------------------------
 
-!print*, "Detect if a stack is on top of a roof"
-!DO i=1,size(S)                                  !for each stack
-!   DO j=1,size(B)                                !for each building
-!   print '("(",A10,"-",A10,")")',S(i)%nombre,B(j)%nombre
-!
-!       DO k=1,size(B(j)%T)                       !for each tier
-!         if ( isInsideTier(S(i), B(j)%T(k)) ) then
-!            print '(A10,"=>",A10)',S(i)%nombre, B(j)%nombre
-!         endif
-!      enddo
-!   enddo
-!enddo
+print*, "Detect if a stack is on top of a roof"
+DO i=1,size(S)                                  !for each stack
+   DO j=1,size(B)                                !for each building
+   !print '("(",A10,"-",A10,")")',S(i)%nombre,B(j)%nombre
+       DO k=1,size(B(j)%T)                       !for each tier
+         if ( isInsideTier(S(i), B(j)%T(k)) ) then
+            print '(A10,"=>",A10)',S(i)%nombre, B(j)%nombre
+         endif
+      enddo
+   enddo
+enddo
 
 DO d=1,36   !for each wdir (c/10 grados)
      print '("      Wind flow passing", I4," degree direction.")', d*10 
-     wdir=d*10.0*deg2rad    !wdir [rad]
+     wdir=d*10.0*deg2rad!+0.25*deg2rad    !wdir [rad]
 
-     call rotar(B,S,wdir)  !roto coordenadas según wdir
+     !call rotar(B,S,wdir)       !roto coordenadas según wdir. "BIEN"
+     call rotar(B,S,sngl(wdir))  !roto coordenadas según wdir. "MAL" (original)
 
      DO i=1,size(S)                                    !for each stack
+         refGSH=0.0; refWID=0.0; tmax=0; bmax=0
          tier_affects_stack=.false.
          S(i)%affected_by_tier=S(i)%affected_by_tier .OR. .false.
-         refGSH=0.0; refWID=0.0; tmax=0; bmax=0
 
          DO j=1,size(B)                                !for each building
              DO k=1,size(B(j)%T)                       !for each tier
@@ -67,11 +67,11 @@ DO d=1,36   !for each wdir (c/10 grados)
                 !check si tier afecta stack (adentro de 5L y SIZ)
                 SIZ=isInsideSIZ(S(i), B(j)%T(k)) 
                 L5 =isInsideL5( S(i), B(j)%T(k))
-                inTier=( SIZ .and. S(i)%xy2(2) .LE. B(j)%T(k)%ymax ) 
-                if ( ( L5 .AND. SIZ) .OR. inTier ) then 
+                inTier=( SIZ .AND. S(i)%xy2(2) .LE. B(j)%T(k)%ymax ) !isInsideTier(S(i), B(j)%T(k)) !
+                if ( ( L5 .AND. SIZ ) .OR. inTier ) then 
                     S(i)%affected_by_tier=.true.
                     tier_affects_stack=.true.
-                    call mergeCloseTiers(B(j)%T(k),B,k,B(j)%nombre)   !si hay otra structura cercana (de == tier) y combinarlos
+                    !call mergeCloseTiers(B(j)%T(k),B,k,B(j)%nombre)   !si hay otra structura cercana (de == tier) y combinarlos
                     call calcGepStackHeight(B(j)%z0, B(j)%T(k), S(i)) !calc: GSH, XBADJ, YBADJ
                    !guardar el tier de máximo GSH, (si hay dos con == GSH) quedarme con el de narrower width
                    if ( refGSH < B(j)%T(k)%gsh .OR. ( refGSH == B(j)%T(k)%gsh .AND. refWID >= B(j)%T(k)%wid) ) then
@@ -117,15 +117,18 @@ subroutine rotar(B,S,wdir) !Calculo de nuevas coordenadas
         implicit none
         type(build),intent(inout)   :: B(:)
         type(stack), intent(inout)  :: S(:)
-        double precision,intent(in) :: wdir
+        real,             intent(in) :: wdir  !original
+        !double precision,intent(in) :: wdir
         double precision :: R(2,2)
         integer :: i,j,k
         !matriz de rotación:       
-        R(1,1)=dcos(wdir); R(1,2)=-dsin(wdir)
+        R(1,1)=dcos(dble(wdir)); R(1,2)=-dsin(dble(wdir)) !original
+        !R(1,1)=dcos(wdir); R(1,2)=-dsin(wdir)
         R(2,1)=-R(1,2)   ; R(2,2)= R(1,1) 
         !stack
         do i=1,size(S)
-           S(i)%xy2=matmul(R,S(i)%xy)                    !proyected coords stack
+           !S(i)%xy2=matmul(R,S(i)%xy)                    !proyected coords stack
+           S(i)%xy2=dble(sngl(matmul(R,S(i)%xy)))                    !proyected coords stack
         enddo
         !buildings
         do i=1,size(B)
@@ -156,13 +159,13 @@ function isInsideL5(S,T)   result(L5)
         type(stack), intent(in) :: S
         type(tier), intent(in)  :: T
         double precision        :: dist
-        !double precision:: x_stack,y_stack
+        double precision        :: x_stack,y_stack
         !  Distancia Stack Tier debe ser menor a 5L
-        dist=sqrt( minval( ( T%xy2(:,1) - S%xy2(1) )**2 + ( T%xy2(:,2) - S%xy2(2) )**2 ) ) 
-        L5=( dist .LE. 5.0*T%L )
-        !x_stack=S%xy2(1)!1,
-        !y_stack=S%xy2(2)!1,
-        !L5=          y_stack .LE. (T%ymax + 5.0*T%L) 
+        !dist=sqrt( minval( ( T%xy2(:,1) - S%xy2(1) )**2 + ( T%xy2(:,2) - S%xy2(2) )**2 ) ) 
+        !L5=( dist .LE. 5.0*T%L )
+        x_stack=S%xy2(1)!1,
+        y_stack=S%xy2(2)!1,
+        L5=          y_stack .LE. (T%ymax + 5.0*T%L) 
         !L5=L5 .AND. (y_stack .GE. T%ymin )
         !L5=L5 .AND. (x_stack .LE. T%xmax ) .AND. ( x_stack .GE. T%xmin ) 
 end function
@@ -186,7 +189,7 @@ function isInsideTier(S,T)    result(inTier)
         type(stack), intent(in) :: S
         type(tier), intent(in)  :: T
         logical :: inTier
-        double precision:: angle
+        double precision:: angle,signo=1.0
         double precision:: v1(2), v2(2), p(2)
         integer :: i,j,n!,k
 
@@ -197,11 +200,11 @@ function isInsideTier(S,T)    result(inTier)
             j=mod(i,n)+1
             v1=T%xy(i,:)-p
             v2=T%xy(j,:)-p
-            angle = angle + dacos( dot_product(v1,v2) / sqrt( dot_product(v1,v1) * dot_product(v2,v2)) ) 
+            signo = dsign(signo,v1(1)*v2(2)-v1(2)*v2(1)) !sign of 3rd-component v1 x v2 (cross prod)
+            angle = angle +signo*dacos( dot_product(v1,v2) / sqrt( dot_product(v1,v1) * dot_product(v2,v2)) )  
         enddo
-        !NO FUNCIONA BIEN!
-        inTier=(ABS(2*pi - ABS(angle)) .LT. 0.1) 
-        !NO FUNCIONA BIEN!
+        
+        inTier=(ABS(2*pi - ABS(angle)) .LT. 1e-4) 
 end function
 
 !!set to null al tier parameters
@@ -218,14 +221,17 @@ end function
 !end subroutine
 
 !Calculo de GEP Stack Height, XBADJ, YBADJ
-subroutine calcGepStackHeight(Bz0,t,s)
+subroutine calcGepStackHeight(Bz0,T,S)
         implicit none
         real :: Bz0
-        type(tier),intent(inout) :: T
+        type(tier),intent(inout)   :: T
         type(stack), intent(inout) :: S
-        T%gsh  = Bz0 + T%hgt - s%z0 + 1.5*T%L             !Equation 1 (GEP, page 6)
-        T%xbadj= T%ymin - sngl(s%xy2(2))                  !XBADJ = YMIN(C) - YPSTK                 !ymin - ystack
-        T%ybadj= sngl(s%xy2(1)) - (T%xmin + T%wid*0.5)    !YBADJ = XPSTK - (XMIN(C) + TW * 0.5)    !xstack- xmin + tw*0.5
+        real  :: stack_x, stack_y
+        stack_x=sngl(S%xy2(1)) 
+        stack_y=sngl(S%xy2(2)) 
+        T%gsh  = Bz0 + T%hgt - s%z0 + 1.5*T%L      !Equation 1 (GEP, page 6)
+        T%ybadj= stack_x - (T%xmin + T%wid * 0.5)  !YBADJ = XPSTK - (XMIN(C) + TW * 0.5)    !xstack- xmin + tw*0.5
+        T%xbadj= T%ymin - stack_y                  !XBADJ = YMIN(C) - YPSTK                 !ymin - ystack
 end subroutine
 
 !Buscar tiers cercanos y combinar
