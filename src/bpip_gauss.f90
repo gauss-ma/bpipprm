@@ -8,75 +8,62 @@ use writeBPIP        !escritura de salidas
 implicit none
 integer :: i,j,k,d           !indices(para: stacks,buildings,tiers,wdirs)
 
-!global
+!global params:
 double precision, parameter :: pi=3.141593 !3.141592653589793_8
 double precision, parameter :: deg2rad=pi/180.0
 character(24),    parameter :: inputFileName="BPIP.INP"
 character(24),    parameter :: outputFileName="bpip.out"
 
-!objects
+!work variables:
 TYPE(build), allocatable :: B(:) !array de edificios
 TYPE(stack), allocatable :: S(:) !array de stacks
 
+character(78)    :: title
 double precision :: wdir         !direccion del viento
-
-logical :: L5,SIZ,inTier,tier_affects_stack
-!output vars:
-character(78) :: title
-real    :: refGSH,refWID
-integer :: bmax,tmax         !index of max GSH for building and tier respectivamente
+logical          :: L5,SIZ,ROOF,any_tier_affects_stack
+real             :: refGSH,refWID !max GSH and WID encountred (for given stack and wdir)
+integer          :: bmax,tmax     !indices where building and tier of max GSH are stored on "build" objct array
 
 !out tables:
 type(outTable), allocatable :: oTable(:)  !output table
 type(stkTable), allocatable :: sTable(:)  !stack  table
 
 !INPUT---------------------------------------------------------------
-call readINP(inputFileName,B,S,title)   !read file y guardar datos en B y S
+call readINP(inputFileName,B,S,title)   !read file & store data in B & S
 
 allocate(oTable(size(S)))   !allocatar tabla de salida
 allocate(sTable(size(S)))   !allocatar tabla de stacks
 !MAIN----------------------------------------------------------------
 
-print*, "Detect if a stack is on top of a roof"
-DO i=1,size(S)                                  !for each stack
-   DO j=1,size(B)                                !for each building
-   !print '("(",A10,"-",A10,")")',S(i)%nombre,B(j)%nombre
-       DO k=1,size(B(j)%T)                       !for each tier
-         if ( isInsideTier(S(i), B(j)%T(k)) ) then
-            print '(A10,"=>",A10)',S(i)%nombre, B(j)%nombre
-         endif
-      enddo
-   enddo
-enddo
+call check_which_stack_over_roof(S,B)
+!call check_which_tiers_to_merge(B)
 
 DO d=1,36   !for each wdir (c/10 grados)
      print '("      Wind flow passing", I4," degree direction.")', d*10 
-     wdir=d*10.0*deg2rad!+0.25*deg2rad    !wdir [rad]
+     wdir=d*10.0*deg2rad  !wdir [rad]
 
-     !call rotar(B,S,wdir)       !roto coordenadas según wdir. "BIEN"
-     call rotar(B,S,sngl(wdir))  !roto coordenadas según wdir. "MAL" (original)
+     !call rotateCoords(B,S,wdir)       !roto coordenadas según wdir. "BIEN"
+     call rotateCoords(B,S,sngl(wdir))  !roto coordenadas según wdir. "MAL" (original)
 
      DO i=1,size(S)                                    !for each stack
          refGSH=0.0; refWID=0.0; tmax=0; bmax=0
-         tier_affects_stack=.false.
-         S(i)%affected_by_tier=S(i)%affected_by_tier .OR. .false.
+         any_tier_affects_stack=.false.
+         S(i)%affected_by_tier=(S(i)%affected_by_tier .OR. .false.)
 
          DO j=1,size(B)                                !for each building
              DO k=1,size(B(j)%T)                       !for each tier
-          
-                !check si tier afecta stack (adentro de 5L y SIZ)
-                SIZ=isInsideSIZ(S(i), B(j)%T(k)) 
-                L5 =isInsideL5( S(i), B(j)%T(k))
-                inTier=( SIZ .AND. S(i)%xy2(2) .LE. B(j)%T(k)%ymax ) !isInsideTier(S(i), B(j)%T(k)) !
-                if ( ( L5 .AND. SIZ ) .OR. inTier ) then 
+                !check si tier afecta stack (adentro de 5L y SIZ, o sobre el ROOF)
+                SIZ =isInsideSIZ(S(i), B(j)%T(k)) 
+                L5  =isInsideL5 (S(i), B(j)%T(k))
+                ROOF=.false. !S(i)%whichRoof == B(j)%nombre 
+                if ( ( L5 .AND. SIZ ) .OR. ROOF ) then 
+                    any_tier_affects_stack=.true.
                     S(i)%affected_by_tier=.true.
-                    tier_affects_stack=.true.
                     !call mergeCloseTiers(B(j)%T(k),B,k,B(j)%nombre)   !si hay otra structura cercana (de == tier) y combinarlos
                     call calcGepStackHeight(B(j)%z0, B(j)%T(k), S(i)) !calc: GSH, XBADJ, YBADJ
                    !guardar el tier de máximo GSH, (si hay dos con == GSH) quedarme con el de narrower width
                    if ( refGSH < B(j)%T(k)%gsh .OR. ( refGSH == B(j)%T(k)%gsh .AND. refWID >= B(j)%T(k)%wid) ) then
-                        refGSH=B(j)%T(k)%gsh   
-                        refWID=B(j)%T(k)%wid
+                        refGSH=B(j)%T(k)%gsh; refWID=B(j)%T(k)%wid
                         bmax=j      !building max (index)
                         tmax=k      !tier     max (index)
                    end if
@@ -84,13 +71,13 @@ DO d=1,36   !for each wdir (c/10 grados)
              END DO!tiers
          END DO!buildings
          
-         if (tier_affects_stack) then
+         if ( any_tier_affects_stack ) then
             call addToOutTable(oTable(i),S(i),B(bmax)%T(tmax),d,wdir) !Agregar a Tablas
             if ( refGSH > sTable(i)%GEPEQN1 ) then
-               call addToStkTable(sTable(i),S(i),B(bmax)%T(tmax), B(bmax)%z0)
+               call addToStkTable(sTable(i),S(i),B(bmax)%T(tmax),B(bmax)%z0)
             endif
          else
-            call no_tiers_affect_this_stack(S(i),d,wdir, oTable(i),sTable(i))
+            call no_tiers_affect_this_stack(S(i),d,wdir,oTable(i),sTable(i))
          endif
      END DO!stacks
 END DO!wdir
@@ -113,7 +100,7 @@ subroutine setTierProyectedValues(T) !Calculo de XMIN XMAX YMIN YMAX
         T%L  =min(T%wid, T%hgt)
 end subroutine
 
-subroutine rotar(B,S,wdir) !Calculo de nuevas coordenadas
+subroutine rotateCoords(B,S,wdir) !Calculo de nuevas coordenadas
         implicit none
         type(build),intent(inout)   :: B(:)
         type(stack), intent(inout)  :: S(:)
@@ -163,8 +150,8 @@ function isInsideL5(S,T)   result(L5)
         !  Distancia Stack Tier debe ser menor a 5L
         !dist=sqrt( minval( ( T%xy2(:,1) - S%xy2(1) )**2 + ( T%xy2(:,2) - S%xy2(2) )**2 ) ) 
         !L5=( dist .LE. 5.0*T%L )
-        x_stack=S%xy2(1)!1,
-        y_stack=S%xy2(2)!1,
+        x_stack=S%xy2(1)
+        y_stack=S%xy2(2)
         L5=          y_stack .LE. (T%ymax + 5.0*T%L) 
         !L5=L5 .AND. (y_stack .GE. T%ymin )
         !L5=L5 .AND. (x_stack .LE. T%xmax ) .AND. ( x_stack .GE. T%xmin ) 
@@ -310,4 +297,28 @@ subroutine no_tiers_affect_this_stack(S,d,wdir,oTab,sTab)
            sTab%GEPSHV=65.0 !max(65.0, T%gsh)
         end if
 end subroutine
+
+
+subroutine check_which_stack_over_roof(S,B)
+        implicit none
+        type(stack) ,intent(inout) :: S(:)
+        type(build),intent(in)    :: B(:)        
+        integer                   :: i,j,k
+
+        print*, "Detect if a stack is on top of a roof"
+        DO i=1,size(S)                                  !for each stack
+           DO j=1,size(B)                                !for each building
+               DO k=1,size(B(j)%T)                       !for each tier
+                 if ( isInsideTier(S(i), B(j)%T(k)) ) then
+                    !print '(A10,"=>",A10)',S(i)%nombre, B(j)%nombre
+                    S(i)%onRoof=.true.
+                    S(i)%whichRoof=B(j)%nombre
+                    exit
+                 endif
+              enddo
+           enddo
+        enddo
+end subroutine
+
+
 end program
