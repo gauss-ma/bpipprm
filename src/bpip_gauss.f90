@@ -1,12 +1,51 @@
 program bpip_gauss
 !MODULES-------------------------------------------------------------
-use struc            !objetos
-use readBPIP         !lectura de datos de entrada
-use writeBPIP        !escritura de salidas
+!use struc            !objetos
+!use readBPIP         !lectura de datos de entrada
+!use writeBPIP        !escritura de salidas
+implicit none
+
+!OBJETCS/TYPES ------------------------------------------------------
+type tier
+  double precision,allocatable :: xy(:,:)   !coords
+  real :: h                                 !height  (leido del .inp) (NO CAMBIA)
+  !projected:
+  double precision,allocatable :: xy2(:,:)  !coords (cambia para c/wdir)
+  real :: xmin,xmax,ymin,ymax  !boundaries          (cambia para c/wdir)
+  real :: hgt,wid,len          !height,width,length (cambia para c/wdir)
+  real :: L                    !L: min{ wid , hgt } (cambia para c/wdir)
+  real :: gsh                  !gep stack height    (cambia para c/stack y wdir)
+  real :: xbadj,ybadj          !gep stack height    (cambia para c/stack y wdir)
+endtype
+
+type building
+  character(8)           :: nombre   !name
+  real                   :: z0       !base height
+  type(tier),allocatable :: t(:)     !tier
+endtype
+
+type stack
+  character(8)     :: nombre
+  real             :: z0, h
+  double precision :: xy(2), xy2(2)
+  logical          :: affected_by_tier=.false.
+  logical          :: onRoof=.false.
+  !character(8)     :: whichRoof='' !es más seguro por indice que por nombre
+  integer          :: whichRoof=0  
+endtype
+
+type outTable  !output table
+  character(8) ::stkName
+  real         :: tabla(36,6)  !36 windirs, 6vars: wdir,hgt,wid,len,xbadj,ybadj
+end type
+
+type stkTable  !stack's table
+  character(8) :: stkName
+  real         :: stkHeight, BaseElevDiff, GEPEQN1=0.0, GEPSHV
+end type
 
 !VARIABLES-----------------------------------------------------------
-implicit none
-integer :: i,j,k,d           !indices(para: stacks,buildings,tiers,wdirs)
+integer :: i,j,k,d
 
 !global params:
 double precision, parameter :: pi=3.141593 !3.141592653589793_8
@@ -15,12 +54,12 @@ character(24),    parameter :: inputFileName="BPIP.INP"
 character(24),    parameter :: outputFileName="bpip.out"
 
 !work variables:
-TYPE(build), allocatable :: B(:) !array de edificios
-TYPE(stack), allocatable :: S(:) !array de stacks
-
+TYPE(building), allocatable :: B(:) !array de edificios
+TYPE(stack), allocatable    :: S(:) !array de stacks
+!type(tier)                  :: fT   !focal Tier
 character(78)    :: title
 double precision :: wdir         !direccion del viento
-logical          :: L5,SIZ,ROOF,any_tier_affects_stack
+logical          :: SIZ,ROOF,any_tier_affects_stack_at_this_wdir
 real             :: refGSH,refWID !max GSH and WID encountred (for given stack and wdir)
 integer          :: bmax,tmax     !indices where building and tier of max GSH are stored on "build" objct array
 
@@ -30,54 +69,52 @@ type(stkTable), allocatable :: sTable(:)  !stack  table
 
 !INPUT---------------------------------------------------------------
 call readINP(inputFileName,B,S,title)   !read file & store data in B & S
-
 allocate(oTable(size(S)))   !allocatar tabla de salida
 allocate(sTable(size(S)))   !allocatar tabla de stacks
-!MAIN----------------------------------------------------------------
 
+!MAIN----------------------------------------------------------------
 call check_which_stack_over_roof(S,B)
 !call check_which_tiers_to_merge(B)
 
-DO d=1,36   !for each wdir (c/10 grados)
+DO d=1,36   !for each wdir (c/10 deg)
      print '("      Wind flow passing", I4," degree direction.")', d*10 
      wdir=d*10.0*deg2rad  !wdir [rad]
-
      !call rotateCoords(B,S,wdir)       !roto coordenadas según wdir. "BIEN"
      call rotateCoords(B,S,sngl(wdir))  !roto coordenadas según wdir. "MAL" (original)
 
-     DO i=1,size(S)                                    !for each stack
+     DO i=1,size(S)                                 !for each stack
          refGSH=0.0; refWID=0.0; tmax=0; bmax=0
-         any_tier_affects_stack=.false.
+         any_tier_affects_stack_at_this_wdir=.false.
          S(i)%affected_by_tier=(S(i)%affected_by_tier .OR. .false.)
 
-         DO j=1,size(B)                                !for each building
-             DO k=1,size(B(j)%T)                       !for each tier
-                !check si tier afecta stack (adentro de 5L y SIZ, o sobre el ROOF)
-                SIZ =isInsideSIZ(S(i), B(j)%T(k)) 
-                L5  =isInsideL5 (S(i), B(j)%T(k))
-                ROOF=.false. !S(i)%whichRoof == B(j)%nombre 
-                if ( ( L5 .AND. SIZ ) .OR. ROOF ) then 
-                    any_tier_affects_stack=.true.
-                    S(i)%affected_by_tier=.true.
-                    !call mergeCloseTiers(B(j)%T(k),B,k,B(j)%nombre)   !si hay otra structura cercana (de == tier) y combinarlos
-                    call calcGepStackHeight(B(j)%z0, B(j)%T(k), S(i)) !calc: GSH, XBADJ, YBADJ
-                   !guardar el tier de máximo GSH, (si hay dos con == GSH) quedarme con el de narrower width
-                   if ( refGSH < B(j)%T(k)%gsh .OR. ( refGSH == B(j)%T(k)%gsh .AND. refWID >= B(j)%T(k)%wid) ) then
-                        refGSH=B(j)%T(k)%gsh; refWID=B(j)%T(k)%wid
-                        bmax=j      !building max (index)
-                        tmax=k      !tier     max (index)
-                   end if
-                endif
-             END DO!tiers
+         DO j=1,size(B)                             !for each building
+            DO k=1,size(B(j)%T)                     !for each tier
+
+               SIZ  = isInsideSIZ(S(i), B(j)%T(k))
+               ROOF = S(i)%whichRoof == j
+               if ( SIZ .OR. ROOF ) then 
+                  any_tier_affects_stack_at_this_wdir=.true. 
+                  S(i)%affected_by_tier=.true.
+
+                  call mergeCloseTiers(B(j)%T(k),B,k,B(j)%nombre)   !si hay otra structura cercana (de == tier) y combinarlos
+                  call calcGepStackHeight(B(j)%z0, B(j)%T(k), S(i)) !calc: GSH, XBADJ, YBADJ
+                  
+                  if ( hasMaxGSH(B(j)%T(k), refWID, refGSH) ) then
+                     refGSH=B(j)%T(k)%gsh; refWID=B(j)%T(k)%wid
+                     bmax=j      !building max (index)
+                     tmax=k      !tier     max (index)
+                  end if
+               endif
+            END DO!tiers
          END DO!buildings
          
-         if ( any_tier_affects_stack ) then
-            call addToOutTable(oTable(i),S(i),B(bmax)%T(tmax),d,wdir) !Agregar a Tablas
+         if ( any_tier_affects_stack_at_this_wdir ) then
+            call addToOutTable(oTable(i),S(i),B(bmax)%T(tmax),d,wdir) 
             if ( refGSH > sTable(i)%GEPEQN1 ) then
                call addToStkTable(sTable(i),S(i),B(bmax)%T(tmax),B(bmax)%z0)
             endif
          else
-            call no_tiers_affect_this_stack(S(i),d,wdir,oTable(i),sTable(i))
+            call no_tier_affects_this_stack_at_this_wdir(S(i),d,wdir,oTable(i),sTable(i))
          endif
      END DO!stacks
 END DO!wdir
@@ -85,240 +122,494 @@ END DO!wdir
 !OUTPUT:-------------------------------------------------------------
 call writeOUT(oTable,sTable,title,outputFileName)
 
+WRITE(*,'(/,A,/)') ' END OF BPIP RUN.'
+
 contains
 
+subroutine rotateCoords(B,S,wdir) !Calculo de nuevas coordenadas
+    implicit none
+    type(building),intent(inout) :: B(:)
+    type(stack), intent(inout)   :: S(:)
+    real,             intent(in) :: wdir  !original
+    !double precision,intent(in) :: wdir
+    double precision :: R(2,2)
+    integer :: i,j,k
+    !matriz de rotación:       
+    R(1,1)=dcos(dble(wdir)); R(1,2)=-dsin(dble(wdir)) !original
+    !R(1,1)=dcos(wdir); R(1,2)=-dsin(wdir)
+    R(2,1)=-R(1,2)   ; R(2,2)= R(1,1) 
+    !stack
+    do i=1,size(S)
+       !S(i)%xy2=matmul(R,S(i)%xy)              !proyected coords stack
+       S(i)%xy2=dble(sngl(matmul(R,S(i)%xy)))   !original
+    enddo
+    !buildings
+    do i=1,size(B)
+       do j=1,size(B(i)%T)
+           do k=1,size(B(i)%T(j)%xy(:,1))
+              B(i)%T(j)%xy2(k,:)=matmul(R,B(i)%T(j)%xy(k,:))   !proyected coords tier corners
+           enddo
+           call setTierProyectedValues(B(i)%T(j) )             ! calc tier: xmin,xmax,ymin,ymax
+       enddo
+    enddo
+end subroutine
+
+logical function isInsideSIZ(S,T)       result(SIZ)  
+    ! check if Stack is over influence of a tier (Structure Influence Zone, SIZ)
+    implicit none
+    type(stack), intent(in) :: S
+    type(tier), intent(in)  :: T
+    double precision:: x_stack,y_stack,dist
+    integer ::i,j,n
+    x_stack=S%xy2(1)
+    y_stack=S%xy2(2)
+    
+    !  Stack está dentro del SIZ de la estructura? 
+    SIZ=           x_stack .GE. (T%xmin - 0.5*T%L)  
+    SIZ=SIZ .AND. (x_stack .LE. (T%xmax + 0.5*T%L) )
+    SIZ=SIZ .AND. (y_stack .GE. (T%ymin - 2.0*T%L) )
+    !SIZ=SIZ .AND. (y_stack .LE. (T%ymax + 5.0*T%L) )  !old
+    if ( SIZ ) then
+       !dist=sqrt( minval( ( T%xy2(:,1) - S%xy2(1) )**2 + ( T%xy2(:,2) - S%xy2(2) )**2 ) ) 
+       !SIZ = .NOT. (dist .GT. 5.0*T%L) ! L5
+       n=size(T%xy2(:,1))
+       do i=1,n
+           j=mod(i,n)+1
+           SIZ=DISLIN(T%xy2(i,1), T%xy2(i,2), T%xy2(j,1),T%xy2(j,2), S%xy2(1),S%xy2(2), dble(T%L)) ! (v1,v2,vS,L5)
+           if (SIZ) exit
+       enddo
+    endif
+end function
+
+logical function isInsideTier(S,T)    result(inTier) 
+    implicit none
+    type(stack), intent(in) :: S
+    type(tier), intent(in)  :: T
+    double precision:: angle,signo=1.0
+    double precision:: v1(2), v2(2), p(2)
+    integer :: i,j,n!,k
+    p=S%xy
+    angle=0.0
+    n=size(T%xy(:,1))
+    do i=1,n
+        j=mod(i,n)+1
+        v1=T%xy(i,:)-p
+        v2=T%xy(j,:)-p
+        signo = dsign(signo,v1(1)*v2(2)-v1(2)*v2(1))      !sign of 3rd-component v1 x v2 (cross prod)
+        angle = angle + signo * dacos( dot_product(v1,v2) / sqrt(dot_product(v1,v1)*dot_product(v2,v2))) 
+    enddo
+    inTier=(ABS(2*pi - ABS(angle)) .LT. 1e-4) 
+end function
+
+logical function hasMaxGSH(T, WID, GSH) !true si tier de máximo GSH. (si hay dos con == GSH) quedarme con el de menor width
+        implicit none
+        type(tier) :: T
+        real       :: WID, GSH
+        hasMaxGSH=GSH < T%gsh .OR. ( GSH == T%gsh .AND. WID >= T%wid) 
+end function
 
 subroutine setTierProyectedValues(T) !Calculo de XMIN XMAX YMIN YMAX
-        implicit none
-        type(tier),intent(inout)   :: T
-        T%xmin=sngl(minval(T%xy2(:,1)) ); T%xmax=sngl(maxval(T%xy2(:,1)) )
-        T%ymin=sngl(minval(T%xy2(:,2)) ); T%ymax=sngl(maxval(T%xy2(:,2)) )
+    implicit none
+    type(tier),intent(inout)   :: T
+    T%xmin=sngl(minval(T%xy2(:,1)) ); T%xmax=sngl(maxval(T%xy2(:,1)) )
+    T%ymin=sngl(minval(T%xy2(:,2)) ); T%ymax=sngl(maxval(T%xy2(:,2)) )
 
-        T%wid=T%xmax - T%xmin
-        T%len=T%ymax - T%ymin
-        T%hgt=T%h
-        T%L  =min(T%wid, T%hgt)
+    T%wid=T%xmax - T%xmin
+    T%len=T%ymax - T%ymin
+    T%hgt=T%h
+    T%L  =min(T%wid, T%hgt)
 end subroutine
 
-subroutine rotateCoords(B,S,wdir) !Calculo de nuevas coordenadas
-        implicit none
-        type(build),intent(inout)   :: B(:)
-        type(stack), intent(inout)  :: S(:)
-        real,             intent(in) :: wdir  !original
-        !double precision,intent(in) :: wdir
-        double precision :: R(2,2)
-        integer :: i,j,k
-        !matriz de rotación:       
-        R(1,1)=dcos(dble(wdir)); R(1,2)=-dsin(dble(wdir)) !original
-        !R(1,1)=dcos(wdir); R(1,2)=-dsin(wdir)
-        R(2,1)=-R(1,2)   ; R(2,2)= R(1,1) 
-        !stack
-        do i=1,size(S)
-           !S(i)%xy2=matmul(R,S(i)%xy)                    !proyected coords stack
-           S(i)%xy2=dble(sngl(matmul(R,S(i)%xy)))                    !proyected coords stack
-        enddo
-        !buildings
-        do i=1,size(B)
-           do j=1,size(B(i)%T)
-               do k=1,size(B(i)%T(j)%xy(:,1))
-                  B(i)%T(j)%xy2(k,:)=matmul(R,B(i)%T(j)%xy(k,:))   !proyected coords tier corners
-               enddo
-               call setTierProyectedValues(B(i)%T(j) )       ! calc tier: xmin,xmax,ymin,ymax
-           enddo
-        enddo
+subroutine calcGepStackHeight(Bz0,T,S) !Calculo de GEP Stack Height, XBADJ, YBADJ
+    implicit none
+    real :: Bz0
+    type(tier),intent(inout)   :: T
+    type(stack), intent(inout) :: S
+    real  :: stack_x, stack_y
+    stack_x=sngl(S%xy2(1)) 
+    stack_y=sngl(S%xy2(2)) 
+    T%gsh  = Bz0 + T%hgt - s%z0 + 1.5*T%L      !Equation 1 (GEP, page 6)
+    T%ybadj= stack_x - (T%xmin + T%wid * 0.5)  !YBADJ = XPSTK - (XMIN(C) + TW * 0.5)    !xstack- xmin + tw*0.5
+    T%xbadj= T%ymin - stack_y                  !XBADJ = YMIN(C) - YPSTK                 !ymin - ystack
 end subroutine
 
-!Calcula distancia mínima entre dos conjuntos de puntos
-function minDist(xy1,xy2) result(Dist)
-        implicit none
-        double precision,intent(in) :: xy1(:,:), xy2(:,:)
-        double precision :: Dist
-        integer :: i
-        Dist=1.0e+12  
-        do i=1,size(xy1,1)
-           Dist=sqrt(min(Dist**2, minval( ( xy2(:,1) - xy1(i,1) )**2 + ( xy2(:,2) - xy1(i,2) )**2 ) ) )
-        end do
-end function
-
-function isInsideL5(S,T)   result(L5)
-        implicit none
-        logical :: L5
-        type(stack), intent(in) :: S
-        type(tier), intent(in)  :: T
-        double precision        :: dist
-        double precision        :: x_stack,y_stack
-        !  Distancia Stack Tier debe ser menor a 5L
-        !dist=sqrt( minval( ( T%xy2(:,1) - S%xy2(1) )**2 + ( T%xy2(:,2) - S%xy2(2) )**2 ) ) 
-        !L5=( dist .LE. 5.0*T%L )
-        x_stack=S%xy2(1)
-        y_stack=S%xy2(2)
-        L5=          y_stack .LE. (T%ymax + 5.0*T%L) 
-        !L5=L5 .AND. (y_stack .GE. T%ymin )
-        !L5=L5 .AND. (x_stack .LE. T%xmax ) .AND. ( x_stack .GE. T%xmin ) 
-end function
-
-function isInsideSIZ(S,T)       result(SIZ)
-        implicit none
-        type(stack), intent(in) :: S
-        type(tier), intent(in)  :: T
-        logical :: SIZ
-        double precision:: x_stack,y_stack
-        x_stack=S%xy2(1)
-        y_stack=S%xy2(2)
-        !  Stack está dentro del SIZ de la estructura?  SIZ= [xmin-0.5*L , xmax + 0.5*L] , [ymin -2L , ymax+5L ]
-        SIZ=           x_stack .GE. (T%xmin - 0.5*T%L)    
-        SIZ=SIZ .AND. (x_stack .LE. (T%xmax + 0.5*T%L) )  
-        SIZ=SIZ .AND. (y_stack .GE. (T%ymin - 2.0*T%L) )  
-end function
-
-function isInsideTier(S,T)    result(inTier) 
-        implicit none
-        type(stack), intent(in) :: S
-        type(tier), intent(in)  :: T
-        logical :: inTier
-        double precision:: angle,signo=1.0
-        double precision:: v1(2), v2(2), p(2)
-        integer :: i,j,n!,k
-
-        p=S%xy
-        angle=0.0
-        n=size(T%xy(:,1))
-        do i=1,n
-            j=mod(i,n)+1
-            v1=T%xy(i,:)-p
-            v2=T%xy(j,:)-p
-            signo = dsign(signo,v1(1)*v2(2)-v1(2)*v2(1)) !sign of 3rd-component v1 x v2 (cross prod)
-            angle = angle +signo*dacos( dot_product(v1,v2) / sqrt( dot_product(v1,v1) * dot_product(v2,v2)) )  
-        enddo
-        
-        inTier=(ABS(2*pi - ABS(angle)) .LT. 1e-4) 
-end function
-
-!!set to null al tier parameters
-!subroutine nullifyTier(t)
-!        implicit none
-!        type(tier),intent(inout) :: T
-!        T%hgt  =0.00
-!        T%wid  =0.00
-!        T%len  =0.00
-!        T%L    =0.00
-!        T%xbadj=0.00
-!        T%ybadj=0.00
-!        T%gsh  =0.00
-!end subroutine
-
-!Calculo de GEP Stack Height, XBADJ, YBADJ
-subroutine calcGepStackHeight(Bz0,T,S)
-        implicit none
-        real :: Bz0
-        type(tier),intent(inout)   :: T
-        type(stack), intent(inout) :: S
-        real  :: stack_x, stack_y
-        stack_x=sngl(S%xy2(1)) 
-        stack_y=sngl(S%xy2(2)) 
-        T%gsh  = Bz0 + T%hgt - s%z0 + 1.5*T%L      !Equation 1 (GEP, page 6)
-        T%ybadj= stack_x - (T%xmin + T%wid * 0.5)  !YBADJ = XPSTK - (XMIN(C) + TW * 0.5)    !xstack- xmin + tw*0.5
-        T%xbadj= T%ymin - stack_y                  !XBADJ = YMIN(C) - YPSTK                 !ymin - ystack
+subroutine no_tier_affects_this_stack_at_this_wdir(S,d,wdir,oTab,sTab)
+    implicit none
+    type(outTable), intent(inout) :: oTab
+    type(stkTable), intent(inout) :: sTab
+    type(stack),intent(in) :: S
+    double precision, intent(in) :: wdir
+    integer, intent(in) ::d
+    oTab%stkName=S%nombre
+    oTab%tabla(d,1:6)=[ sngl(wdir),0.0,0.0,0.0,0.0,0.0 ] !copy on table
+    if ( .not. S%affected_by_tier) then
+       WRITE(*,*) '     No tiers affect this stack.'
+       sTab%stkName=S%nombre
+       sTab%stkHeight=S%h
+       sTab%BaseElevDiff=S%z0 !-belev
+       sTab%GEPEQN1=-99.99 !T%gsh ! max(, gep)
+       sTab%GEPSHV=65.0 !max(65.0, T%gsh)
+    end if
 end subroutine
 
+subroutine check_which_stack_over_roof(S,B)
+    implicit none
+    type(stack) ,intent(inout) :: S(:)
+    type(building),intent(in)  :: B(:)        
+    integer                    :: i,j,k
+
+    print*, "Detect if a stack is on top of a roof"
+    DO i=1,size(S)                                  !for each stack
+       DO j=1,size(B)                               !for each building
+           DO k=1,size(B(j)%T)                      !for each tier
+             if ( isInsideTier(S(i), B(j)%T(k)) ) then
+                print '(A10,"=>",A10)',S(i)%nombre, B(j)%nombre
+                S(i)%onRoof=.true.
+                S(i)%whichRoof=j 
+                exit
+             endif
+          enddo
+       enddo
+    enddo
+end subroutine
+
+!MERGE TIERS    *************************************************
+
+real function minDist(xy1,xy2) result(dist)  !Calcula distancia mínima entre dos conjuntos de puntos
+    implicit none
+    double precision,intent(in) :: xy1(:,:), xy2(:,:)
+    double precision :: minvalue
+    integer :: i
+    dist=1.0e+12  
+    do i=1,size(xy1,1)
+       minvalue=minval( ( xy2(:,1)-xy1(i,1) )**2 + ( xy2(:,2) - xy1(i,2) )**2 ) 
+       dist=sngl(sqrt(min(Dist**2,minvalue )) )
+    end do
+end function
 !Buscar tiers cercanos y combinar
-subroutine mergeCloseTiers(t,B,ntier,nombre)
-        implicit none
-        type(tier) ,intent(inout) :: T
-        type(build),intent(inout) :: B(:)        
-        integer,intent(in) :: ntier
-        character(8),intent(in) :: nombre
-        real :: dist, minL
-        integer :: i
-        do i=1,size(B),1
-        if ( B(i)%nombre /= nombre ) then
-           if ( size(B(i)%t) >= ntier ) then
-              !dist = sngl( minDist( T%xy, B(i)%T(ntier)%xy ) )
-              dist = sngl( minDist( T%xy2, B(i)%T(ntier)%xy2 ) )
-              minL=min(t%L, B(i)%T(ntier)%L) 
-              if ( dist < minL ) then
-                 call CombineTiers(t, B(i)%t(ntier) )
-              endif
-           endif
-        endif
-        enddo
+subroutine mergeCloseTiers(T,B,ntier,nombre)
+    implicit none
+    type(tier)    ,intent(inout) :: T
+    type(building),intent(inout) :: B(:)        
+    integer,intent(in) :: ntier
+    character(8),intent(in) :: nombre
+    real :: dist, minL
+    integer :: i
+    do i=1,size(B),1
+    if ( B(i)%nombre /= nombre ) then
+       !if ( size(B(i)%T) >= ntier ) then
+       if ( size(B(i)%T) == ntier ) then
+          !dist = sngl( minDist( T%xy, B(i)%T(ntier)%xy ) )
+          dist = sngl( minDist( T%xy2, B(i)%T(ntier)%xy2 ) )
+          !dist = CNRLIN(T%xy2, B(i)%T(ntier)%xy2 )   !original
+          minL=min(t%L, B(i)%T(ntier)%L) 
+          if ( dist < minL ) then
+             call CombineTiers(T, B(i)%T(ntier) )
+          endif
+       endif
+    endif
+    enddo
 end subroutine
 
 !Combinar dos tiers 
 subroutine CombineTiers(t1,t2) 
-        implicit none
-        type(tier),intent(inout) :: T1
-        type(tier),intent(inout) :: T2
-        T1%xmin=min(T1%xmin, T2%xmin) 
-        T1%xmax=max(T1%xmax, T2%xmax)
-        T1%ymin=min(T1%ymin, T2%ymin)
-        T1%ymax=max(T1%ymax, T2%ymax)
+    implicit none
+    type(tier),intent(inout) :: T1
+    type(tier),intent(in   ) :: T2
+    T1%xmin=min(T1%xmin, T2%xmin) 
+    T1%xmax=max(T1%xmax, T2%xmax)
+    T1%ymin=min(T1%ymin, T2%ymin)
+    T1%ymax=max(T1%ymax, T2%ymax)
+
+    !T1%wid=T1%xmax - T1%xmin
+    !T1%len=T1%ymax - T1%ymin
+    !!T1%hgt=T%h
+    !T1%L  =min(T1%wid, T1%hgt)
+
 end subroutine
 
+!ADD TO TABLES: *************************************************
 subroutine addToOutTable(table,S,T,d,wdir)
-        implicit none
-        type(outTable), intent(inout) :: table
-        type(tier), intent(in) :: T
-        type(stack),intent(in) :: S
-        double precision, intent(in) :: wdir
-        integer, intent(in) ::d
-        table%stkName=S%nombre
-        table%tabla(d,1:6)=[ sngl(wdir),t%hgt,t%wid,t%len,t%xbadj,t%ybadj ] !copy on table
+    implicit none
+    type(outTable), intent(inout) :: table
+    type(tier), intent(in) :: T
+    type(stack),intent(in) :: S
+    double precision, intent(in) :: wdir
+    integer, intent(in) ::d
+    table%stkName=S%nombre
+    table%tabla(d,1:6)=[ sngl(wdir),t%hgt,t%wid,t%len,t%xbadj,t%ybadj ] !copy on table
 end subroutine
 
-subroutine addToStkTable(sT,S,T,belev)
-        implicit none
-        type(stkTable), intent(inout) :: sT
-        type(tier), intent(in) :: T
-        type(stack),intent(in) :: S
-        real,intent(in) :: belev
-        st%stkName=S%nombre
-        st%stkHeight=S%h
-        st%BaseElevDiff=S%z0-belev
-        st%GEPEQN1=T%gsh ! max(, gep)
-        st%GEPSHV=max(65.0, T%gsh)
-end subroutine
-
-subroutine no_tiers_affect_this_stack(S,d,wdir,oTab,sTab)
-        implicit none
-        type(outTable), intent(inout) :: oTab
-        type(stkTable), intent(inout) :: sTab
-        type(stack),intent(in) :: S
-        double precision, intent(in) :: wdir
-        integer, intent(in) ::d
-        oTab%stkName=S%nombre
-        oTab%tabla(d,1:6)=[ sngl(wdir),0.0,0.0,0.0,0.0,0.0 ] !copy on table
-        if ( .not. S%affected_by_tier) then
-           WRITE(*,*) '     No tiers affect this stack.'
-           sTab%stkName=S%nombre
-           sTab%stkHeight=S%h
-           sTab%BaseElevDiff=S%z0 !-belev
-           sTab%GEPEQN1=-99.99 !T%gsh ! max(, gep)
-           sTab%GEPSHV=65.0 !max(65.0, T%gsh)
-        end if
+subroutine addToStkTable(sTab,S,T,belev)
+    implicit none
+    type(stkTable), intent(inout) :: sTab
+    type(tier), intent(in) :: T
+    type(stack),intent(in) :: S
+    real,intent(in) :: belev
+    sTab%stkName     = S%nombre
+    sTab%stkHeight   = S%h
+    sTab%BaseElevDiff= S%z0-belev
+    sTab%GEPEQN1     = T%gsh ! max(, gep)
+    sTab%GEPSHV      = max(65.0, T%gsh)
 end subroutine
 
 
-subroutine check_which_stack_over_roof(S,B)
+!INPUT:  ******************************************************************
+subroutine readINP(inp_file,B,S,title) 
         implicit none
-        type(stack) ,intent(inout) :: S(:)
-        type(build),intent(in)    :: B(:)        
-        integer                   :: i,j,k
+        character(78),intent(inout) :: title
+        character(24),intent(in) :: inp_file
+        TYPE(building),allocatable, intent(inout) :: B(:)
+        TYPE(stack),allocatable, intent(inout) :: S(:)
+        integer :: nb,nt,nn,ns !# builds,# tiers # nodes,# stacks
+        integer :: i,j,k
 
-        print*, "Detect if a stack is on top of a roof"
-        DO i=1,size(S)                                  !for each stack
-           DO j=1,size(B)                                !for each building
-               DO k=1,size(B(j)%T)                       !for each tier
-                 if ( isInsideTier(S(i), B(j)%T(k)) ) then
-                    !print '(A10,"=>",A10)',S(i)%nombre, B(j)%nombre
-                    S(i)%onRoof=.true.
-                    S(i)%whichRoof=B(j)%nombre
-                    exit
-                 endif
-              enddo
-           enddo
-        enddo
+        WRITE(*,'(/,A,/)') ' READING INPUT DATA FROM FILE.'
+        open(1,file=inp_file,action="READ")
+        
+        read(1,*) title !titulo
+        read(1,*) !options 'P'
+        read(1,*) !units        & factor of correction
+        read(1,*) !coord system & initial angle
+        
+        !BUILDINGS:
+        read(1,*) nb    !# buildings
+        allocate(B(nb)) 
+        do i=1,nb,1 !read buildings and tiers
+                read(1,*) B(i)%nombre,nt,B(i)%z0       !name ntiers z0
+        
+                allocate(B(i)%T(nt))
+                !print*,"BUILDING: ",B(i)%nombre,B(i)%z0,nt              !debug
+                do j=1,nt,1
+                        read(1,*) nn, B(i)%T(j)%h !hgt  !nn hgt
+                        allocate(B(i)%T(j)%xy(nn,2))
+                        allocate(B(i)%T(j)%xy2(nn,2))
+               
+                        do k=1,nn,1
+                                read(1,*) B(i)%T(j)%xy(k,1), B(i)%T(j)%xy(k,2)     !x y
+                        enddo
+                enddo
+        end do
+        
+        !STACKS:       
+        read(1,*)ns  !#stacks
+        allocate(S(ns)) 
+        do i=1,ns,1 !read stacks
+                !read(1,*) S(i)%nombre, S(i)%z0, S(i)%h, S(i)%xy(1,1), S(i)%xy(1,2)    !name z0 h x y
+                read(1,*) S(i)%nombre, S(i)%z0, S(i)%h, S(i)%xy(1), S(i)%xy(2)    !name z0 h x y
+                !print*,"STACK: ", S(i)%nombre, S(i)%z0,S(i)%h,S(i)%xy(1,:)          !debug
+        end do
+
+        close(1)
+        WRITE(*,'(/,A,/)') ' END OF READING INPUT DATA FROM FILE.'
+
 end subroutine
+
+!OUTPUT: ******************************************************************
+subroutine writeOUT(oT,sT,title,outputFileName)
+        implicit none
+        integer ::i
+        character(78),  intent(in) :: title
+        type(outTable), intent(in) :: ot(:)
+        type(stkTable), intent(in) :: st(:)
+        character(24),intent(in) :: outputFileName
+
+        open(2,file=outputFileName,action="WRITE")
+
+        WRITE (2,'(1X,A78,/)') TITLE
+
+        !DATE:
+        call writeDATE()
+        WRITE (2,'(1X,A78,/)') TITLE
+
+
+        WRITE(2,*) '============================'
+        WRITE(2,*) 'BPIP PROCESSING INFORMATION:'
+        WRITE(2,*) '============================'
+        !
+        WRITE(2,"(/3X,'The ',A2,' flag has been set for preparing downwash',' related data',10X)") 'P '
+        WRITE(2,"('          for a model run utilizing the PRIME algorithm.',/)")
+        WRITE(2,"(3X,'Inputs entered in ',A10,' will be converted to ','meters using ')") "METERS    "
+        WRITE(2,"(3X,' a conversion factor of',F10.4,'.  Output will be in meters.',/)") 1.00
+        WRITE(2,"(3X,'UTMP is set to ',A4,'.  The input is assumed to be in',' a local')") "UTMN"
+        WRITE(2,"(3x,' X-Y coordinate system as opposed to a UTM',' coordinate system.')")
+        WRITE(2,"(3x,' True North is in the positive Y',' direction.',/)")
+        WRITE(2,"(3X,'Plant north is set to',F7.2,' degrees with respect to',' True North.  ',//)") 0.00
+        !
+        WRITE (2,'(1X,A78,///)') TITLE
+
+        !STACK RESULTS
+        WRITE(2,"(16X,'PRELIMINARY* GEP STACK HEIGHT RESULTS TABLE')")
+        WRITE(2,"(13X,'            (Output Units: meters)',/)")
+        WRITE(2,"(8X,'                    Stack-Building            Preliminary*')")
+        WRITE(2,"(8X,' Stack    Stack     Base Elevation    GEP**   GEP Stack')")
+        WRITE(2,"(8X,' Name     Height    Differences       EQN1    Height Value',//)")
+        do i=1,size(sT,1),1
+           
+           if ( st(i)%GEPEQN1 .LT. 0.0 ) then
+              !                                                   STKN(S),       SH(S),           DIF,                PV
+              WRITE(2,'(8X, A8, F8.2, 10X, "N/A",5X,3(F8.2,5X))') st(i)%stkName, st(i)%stkHeight, st(i)%BaseElevDiff, st(i)%GEPSHV
+           else
+              !                                STKN(S),        SH(S),           DIF,                 GEP(S),       PV
+              WRITE(2,'(8X, A8, 4(F8.2,5X))') st(i)%stkName, st(i)%stkHeight, st(i)%BaseElevDiff, st(i)%GEPEQN1, st(i)%GEPSHV
+           end if
+        end do
+        WRITE(2,"(/,'   * Results are based on Determinants 1 & 2 on pages 1',' & 2 of the GEP')   ")
+        WRITE(2,"( '     Technical Support Document.  Determinant',' 3 may be investigated for')  ")
+        WRITE(2,"( '     additional stack height cred','it.  Final values result after')          ")
+        WRITE(2,"( '     Determinant 3 has been ta','ken into consideration.')                    ")
+        WRITE(2,"( '  ** Results were derived from Equation 1 on page 6 of GEP Tech','nical')     ")
+        WRITE(2,"( '     Support Document.  Values have been adjusted for a','ny stack-building') ")
+        WRITE(2,"( '     base elevation differences.',/)                                          ")
+        WRITE(2,"( '     Note:  Criteria for determining stack heights for modeling',' emission') ")
+        WRITE(2,"( '     limitations for a source can be found in Table 3.1 of the')              ")
+        WRITE(2,"( '     GEP Technical Support Document.')                                        ")
+        WRITE(2,"(/,/,/,/)")
+
+        !DATE (AGAIN)
+        call writeDATE()
+        WRITE (2,'(//,1X,A78,/)') TITLE
+        WRITE (2, *) ' BPIP output is in meters'
+
+        !MAIN OUTPUT:
+        do i=1,size(oT,1),1
+                write(2,'(/)')
+                !HGT
+                write(2,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,2)
+                write(2,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,2)
+                write(2,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,2)
+                write(2,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,2)
+                write(2,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,2)
+                write(2,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,2)
+                !WID
+                write(2,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,3)
+                write(2,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,3)
+                write(2,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,3)
+                write(2,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,3)
+                write(2,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,3)
+                write(2,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,3)
+                !LEN
+                write(2,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,4)
+                write(2,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,4)
+                write(2,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,4)
+                write(2,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,4)
+                write(2,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,4)
+                write(2,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,4)
+                !XBADJ12
+                write(2,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,5)
+                write(2,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,5)
+                write(2,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,5)
+                write(2,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,5)
+                write(2,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,5)
+                write(2,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,5)
+                !YBADJ12
+                write(2,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,6)
+                write(2,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,6)
+                write(2,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,6)
+                write(2,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,6)
+                write(2,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,6)
+                write(2,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,6)
+        end do
+        close(2)!cierro bpip.out
+end subroutine
+
+subroutine writeDATE()
+        implicit none
+        integer :: date_time(8)
+        integer :: iyr,imon,iday,ihr,imin,isec
+        character(len=12) :: real_clock(3)
+        CALL DATE_AND_TIME (REAL_CLOCK (1), REAL_CLOCK (2), REAL_CLOCK (3), DATE_TIME)
+        IYR = DATE_TIME(1); IMON = DATE_TIME(2); IDAY = DATE_TIME(3)
+        IHR = DATE_TIME(5); IMIN = DATE_TIME(6); ISEC = DATE_TIME(7)
+        !header:
+         WRITE (2,'(30X,"BPIP (Dated: 24241 )")')
+         WRITE (2,'(1X, "DATE : ",I2,"/",I2,"/",I4)') IMON, IDAY, IYR
+         WRITE (2,'(1X, "TIME : ",I2,":",I2,":",I2)') IHR, IMIN, ISEC
+ end subroutine
+
+! FUNCIONES HEREDADAS ********************************************************
+!FUNCTION CNRLIN (vI,v1,v2)!XI,YI,X1, Y1, X2, Y2, BET, DIST, XKP, YKP)
+!    ! CNRLIN - SUBROUTINE TO CALCULATE THE DISTANCE BETWEEN A TIER CORNER AND
+!    !           THE SIDE OF ANOTHER TIER.  SUBROUTINE ALSO CALCULATES WHETHER
+!    !           OR NOT A PERPENDICULAR LINE DRAWN FROM THE CORNER TO THE SIDE
+!    !           INTERCEPTS THE SIDE BETWEEN THE TWO CORNERS OF THE TIER.
+!    !calculate corner perpendicular to side distance,
+!    !intercept point, and determine if intercept on or between
+!    !corners.
+!    IMPLICIT NONE
+!    double precision, dimension(2) :: vI,v1,v2
+!    double precision :: A1, A2, BET, DIST, SM, X1, X2, XI, XKP, Y1, Y2, YI, YKP
+!
+!    xI=vI(1); yI=vI(2)
+!    x1=v1(1); y1=v1(2)
+!    x2=v2(1); yI=v2(2)
+!
+!    IF ((X1 .NE. X2) .AND. (Y1 .NE. Y2)) THEN
+!       SM = (Y2 - Y1) / (X2 - X1)                                   !slope
+!       XI = (YKP + XKP / SM - Y1 + X1 * SM) / (SM + 1.0 / SM)       !intercept-X
+!       YI = Y1 + (XI - X1) * SM                                     !intercept-Y
+!    ELSE
+!      IF ((Y2 .EQ. Y1)) THEN
+!         XI = XKP
+!         YI = Y1
+!      ELSE
+!         XI = X1
+!         YI = YKP
+!      END IF
+!    END IF
+!    DIST = SQRT((YI - YKP) ** 2 + (XI - XKP) ** 2)
+!    !
+!    !    Is the intercept point between the two corners of the
+!    !      other structure ?
+!    A1 = (X1 - XI) ** 2 + (Y1 - YI) ** 2 + (X2 - XI) ** 2 + (Y2 - YI) ** 2
+!    A2 = (X1 - X2) ** 2 + (Y1 - Y2) ** 2
+!    CNRLIN = (A2 - A1)
+!    RETURN
+!END FUNCTION
+
+LOGICAL FUNCTION DISLIN (X1, Y1, X2, Y2, XSP, YSP, L5)
+   !calculates distance between a side and stack
+   !and checks it against 5l
+   implicit none
+   double precision, intent(in) :: x1,x2,y1,y2,xsp,ysp
+   double precision, intent(in) :: L5
+   double precision             :: minX,maxX,yI,d1,d2,dist
+
+   DISLIN=.false.
+
+   minX = MIN (X1, X2)
+   maxX = MAX (X1, X2)
+
+   IF ( (XSP .LT. minX) .OR. (XSP .GT. maxX) )  RETURN
+
+   IF ( Y1 .EQ. Y2 ) THEN
+      DIST = YSP - Y1
+      IF ((DIST .GE. 0.0) .AND. (DIST .LE. L5)) THEN
+         DISLIN=.true.
+      END IF
+   END IF
+
+   IF (X1 .EQ. X2) THEN
+      IF (XSP .EQ. X1) THEN
+         D1 = YSP - Y1
+         IF ((D1 .LE. L5) .AND. (D1 .GE. 0.0)) THEN
+           DISLIN=.true.
+         END IF
+         D2 = YSP - Y2
+         IF ((D2 .LE. L5) .AND. (D2 .GE. 0.0)) THEN
+           DISLIN=.true.
+         END IF
+      END IF
+
+   ELSE
+      YI = Y2 + (XSP - X2) * (Y1 - Y2) / (X1 - X2)
+      DIST = YSP - YI
+      IF ((DIST .GE. 0.0) .AND. (DIST .LE. L5)) THEN
+         DISLIN=.true.
+      END IF
+   END IF
+END FUNCTION
+
 
 
 end program
