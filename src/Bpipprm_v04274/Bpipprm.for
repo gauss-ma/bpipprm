@@ -1543,16 +1543,26 @@ C                for centerline directions
        DO 430 I = 1, NB
         DO 440 J = 1, NTRS(I)
           C = (I-1) * MXTRS + J
+      if ( d == NDIR ) then
+        print*,C,HT(C),W(C),min(HT(C),W(C))           !debug:print len,hgt,Wid,L
+        print*,C,XMIN(C),YMIN(C), XMAX(C), YMAX(C)    !debug:print len,hgt,Wid,L
+      endif
+
+
 C Proceed, if more than 1 tier can be combined
          IF (TNUM(C) .GT. 1) THEN
            TN1 = TNUM(C)
            HTC = HT(TLIST(C,1))
 C Use every height in the TLIST set as a criterion for combining
-
+      
+      
+      
+      
           DO 450 T1 = 1, TN1
             TL1 = TLIST(C,T1)
             HTA = HT(TLIST(C,T1))
             CH = TL1
+
            IF (( HTA .LE. HTC) .OR. (C .EQ. TL1)) THEN
 C Save focal tier height as first structure in the TLIST2 array.
              TNUM2(C) = 1

@@ -1,5 +1,5 @@
-# Bpip PRIME
+# BPIP PRIME
 
-> Versión casera de BPIPPRM
+> Versión NO OFICIAL de BPIPPRM
 
 

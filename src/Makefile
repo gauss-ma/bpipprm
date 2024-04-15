@@ -1,21 +1,17 @@
 FC=gfortran
-#FCFLAGS=-c -O2 -static -Wall -fcheck=all -g -fbacktrace -fbounds-check -mtune=native -ffpe-trap=invalid,zero,overflow,underflow,denormal -fbacktrace#-fcheck=bounds
-FCFLAGS=-O2 -static -Wall -fcheck=all -g -fbacktrace -fbounds-check -mtune=native -ffpe-trap=invalid,zero,overflow,underflow,denormal -fbacktrace#-fcheck=bounds
-#FCFLAGS=-fbounds-check -Wuninitialized -O2 -static
-#LDFLAGS= -static -O2
-#OBJECTS=mod_struc.o mod_inp.o mod_out.o bpip_gauss.o
 
-EXE=../exe/bpip_gauss.exe
-MAIN_SCRIPT=bpip_gauss.f90
+FCFLAGS=-O2 -static -Wall -fcheck=all -g -fbacktrace -fbounds-check -mtune=native -ffpe-trap=invalid,zero,overflow,underflow,denormal -fbacktrace#-fcheck=bounds
+
+EXE=../exe
+new_code=bpip_gauss.f90
+v04274_code=Bpipprm_v04274/Bpipprm.for
+v19191_code=Bpipprm_v19191/bpipprm_19191_drft.for
+
 
 all:
-	$(FC) $(MAIN_SCRIPT) $(FCFLAGS) -o ${EXE}
+	$(FC) $(new_code) $(FCFLAGS) -o ${EXE}/bpipprm_gauss.exe
+v04274:
+	$(FC) $(v04274_code) $(FCFLAGS) -o ${EXE}/Bpipprm.exe
+v19191:
+	$(FC) $(v19191_code) $(FCFLAGS) -o ${EXE}/bpipprm_v19191_drft.exe
 
-#all: $(OBJECTS)
-#	$(FC) $(LDFLAGS) $(OBJECTS) -o ${EXE}
-#
-#%.o: %.f90
-#	$(FC) $(FCFLAGS) $< -o $@
-#
-#clean:
-#	rm -rf *.o *.mod *.exe
