@@ -1007,6 +1007,8 @@ C                    shortest distance.
 82         CONTINUE
 81        CONTINUE
 80      CONTINUE
+                 print '(6(F9.4))',DISTMN !debug
+
 C
 C
 C             GEP STACK HEIGHT CALCULATIONS
@@ -1113,6 +1115,12 @@ C              First or 'Focal' Tier
           HT(C1) = TH(I,J)
            TNUM(C1) = 1
            TLIST(C1, 1) = C1
+
+      !if ( d ==440 ) then                              !debug
+      !  print*,C1,HT(C1),W(C1),min(HT(C1),W(C1))           !debug:print len,hgt,Wid,L
+      !  print*,C1,XMIN(C1),YMIN(C1), XMAX(C1), YMAX(C1)    !debug:print len,hgt,Wid,L
+      !endif                                           !debug
+
 C                 Can the focal tier be combined with the other tiers ?
         DO 113 II = 1, NB
          IF (I .NE. II) THEN
@@ -1157,6 +1165,12 @@ C Proceed, if more than 1 tier can be combined
            HTC = HT(TLIST(C1,1))
 C Use every height in the TLIST set as the common height for combining
 C Create focal subgroups based on common height; store numbers in TLIST2
+
+
+      if (d==440) print*,"Focal Tier:",c1,W(C1),HT(C1),min(W(C1),HT(C1))
+
+
+
           DO 122 T1 = 1, TN1
             TL1 = TLIST(C1,T1)
             HTA = HT(TLIST(C1,T1))
@@ -1197,6 +1211,8 @@ C Is the candidate structure within LTN1 or LTN2 of the focal structure, C1 ?
 C If so, combine by examining the candidate corner coordinates
 C   with previous max & min values to derive overall combined width of
 C   tiers in focal subgroup.
+
+      if(d==440)print*," COMBINED:",C1,C2,"dist=",DISTMN(c1,c2),"L=",LTN
 
                 IF (XMIN(TL2) .LT. XMN) XMN = XMIN(TL2)
                 IF (XMAX(TL2) .GT. XMX) XMX = XMAX(TL2)
@@ -1239,6 +1255,9 @@ C
           FLG1 = ((XPSTK .GE. CXMN) .AND. (XPSTK .LE. CXMX))
           FLG2 = ((YPSTK .GE. CYMN))
            IF (FLG1 .AND. FLG2) THEN
+
+      if (d==440) print*,"      SIZ:",C1,CXMN,CXMX,CYMN,CYMX   !debug
+
 C            If source is within rectangle, check direct downwind
 C            distance from side of focal tier to stack. IBET = 1 if
 C            at or within 5L
@@ -1343,6 +1362,8 @@ C                   perimeter of the GFS
      *                         SB, GEP,GEPBH,GEPBW,GEPIN, TNUM2, TLIST2,
      *                         GTNUM, GTLIST, GDIRS, MI, MJ, 
      *                         D, I, C1, S, TW, WS, HTA, TL1, 2)
+
+      !if (d==440) print*,"     USED:",C1, GEPBH(S), GEPBW(S)
                       GO TO 136
                    END IF
                   END IF
@@ -1543,10 +1564,11 @@ C                for centerline directions
        DO 430 I = 1, NB
         DO 440 J = 1, NTRS(I)
           C = (I-1) * MXTRS + J
-      if ( d == NDIR ) then
-        print*,C,HT(C),W(C),min(HT(C),W(C))           !debug:print len,hgt,Wid,L
-        print*,C,XMIN(C),YMIN(C), XMAX(C), YMAX(C)    !debug:print len,hgt,Wid,L
-      endif
+
+      !debug if ( d == 11 ) then                              !debug
+      !debug   print*,C,HT(C),W(C),min(HT(C),W(C))           !debug:print len,hgt,Wid,L
+      !debug   print*,C,XMIN(C),YMIN(C), XMAX(C), YMAX(C)    !debug:print len,hgt,Wid,L
+      !debug endif                                           !debug
 
 
 C Proceed, if more than 1 tier can be combined

@@ -69,13 +69,12 @@ call readINP(inputFileName,B,S,title,mxtrs)                                    !
 allocate(oTable(size(S)))                                                      !allocatar tabla de salida
 allocate(sTable(size(S)))                                                      !allocatar tabla de stacks
 allocate(DISTMN(size(B)*mxtrs,size(B)*mxtrs)); DISTMN=0.0 
-allocate( TLIST(size(B)*mxtrs, 2 ))            ; TLIST=0    
+allocate( TLIST(size(B)*mxtrs, 2 ))          ; TLIST=0    
 !MAIN----------------------------------------------------------------------------------------------
 
 do i=1,size(B);do j=1,size(B(i)%T)                                             !indexing tiers
   B(i)%T(j)%id=(i-1) * mxtrs + j                                               !give each tier an absolute ID
 enddo; enddo;
-
 call check_which_stack_over_roof(S,B)                                          !check which stacks are placed over a roof.
 call calc_mindist_between_tiers(B,DISTMN)                                      !calc min distance between structures.
 DISTMN=DISTMN!-1e-3                                                             !Agrego algo de tolerancia a las dist
@@ -84,7 +83,7 @@ DO d=1,36                                                                      !
    print '("      Wind flow passing", I4," degree direction.")', d*10 
    wdir=d*10.0*deg2rad                                                         !get wdir [rad]
 
-   call rotateCoords(B,S,sngl(wdir))                                           !rotate coordinates
+   call rotateCoords(B,S,sngl(wdir))                                           !rotate coordinates (T%xy S%xy -> T%xy2 S%xy2)
 
    DO i=1,size(S)                                                              !for each stack
      maxGSH=0.0; refWID=0.0
@@ -117,16 +116,17 @@ DO d=1,36                                                                      !
         DO k=1,size(B(j)%T)                                                    !for each focal tier
 
            fT=B(j)%T(k)                                                        !create "focal" tier
+if (d==11) print*,"Focal Tier:",ft%id,ft%wid,fT%hgt,ft%L
 
            call ListCombinableTiers(fT, B, DISTMN,TLIST,TNUM)                  !list combinable tiers and distances
-           !if (.false.   ) then  !do not execute combined tiers calculations
+           !if ( .false. ) then  !do not execute combined tiers calculations
            if ( TNUM > 0 ) then
              do i1=1,TNUM                                                      !on each combinable tier
                 T1=B( TLIST(i1,1))%T( TLIST(i1,2) )                            !create "subgrup" tier "T1"
 
-                if ( T1%hgt < fT%hgt .or. T1%id == fT%id  ) then               !common hgt should be < focal tier hgt
-                   cT=fT                                                       !create common ("combined") tier "cT"
-                   cT%hgt = T1%hgt                                             !use T1_hgt as "common subgroup hgt"
+                if ( T1%hgt < fT%hgt .or. T1%id == fT%id ) then                !common hgt should be < focal tier hgt
+                   cT     = fT                                                 !init. common ("combined") tier "cT"
+                   cT%hgt = T1%hgt                                             !use T1_hgt as "common subgroup height"
                    cT%L   = min(cT%hgt, cT%wid)                                !update L
 
                    min_tier_dist=minDist(fT%xy2, reshape(S(i)%xy2,[1,2]))      !reset min_tier_dist w/distance fT-stack
@@ -135,11 +135,12 @@ DO d=1,36                                                                      !
                       T2=B(TLIST(i2,1))%T(TLIST(i2,2))                         !create candidate tier "T2"
                       T2%L=min(cT%hgt, T2%wid) !line 1213 de bpip orig use T2-L=min(T1hgt,T2wid)
                       if ( T2%hgt >= cT%hgt .and. T2%id /= cT%id ) then        !if T2_hgt >= common hgt, and is not cT
-                         if ( DISTMN(fT%Id,T2%id) < max(T2%L, cT%L)) then      !if dist T2-fT is less than the maxL
+                         if ( DISTMN(cT%Id,T2%id) < max(T2%L, cT%L)) then      !if dist T2-fT is less than the maxL
                             call combineTiers(cT,T2)                           !combine common Tier w/ T2 ! (update boundaries)
 
                             min_tier_dist=min(min_tier_dist, minDist(T2%xy2, reshape(S(i)%xy2,[1,2])) )  !calc min dist to stack for further use..
                             TNUM2=TNUM2+1                                      !increment counter of combined tiers (tnum2)
+if (d==11) print*," COMBINED:",cT%id,T2%id,"dist=", DISTMN(cT%Id,T2%id),"L=", max(T2%L, cT%L)
                         endif
                       endif  
                    enddo                                                       !
@@ -150,7 +151,7 @@ DO d=1,36                                                                      !
                       cT%len = cT%ymax - cT%ymin                               !update len
                       cT%L   = min(cT%hgt, cT%wid)                             !update L
 !hasta acá va OK.
-                      !define Gap Filling Structure (GFS) (~ CONVEX HULL)
+                      !!define Gap Filling Structure (GFS) (~ CONVEX HULL)
                       !cT%xy2(1,1)  = cT%xmin; cT%xy2(1,2)  = cT%ymin          !define Gap Filling Structure (GFS) 
                       !cT%xy2(2,1)  = cT%xmin; cT%xy2(2,2)  = cT%ymax          !over xy2 coordinates
                       !cT%xy2(3,1)  = cT%xmax; cT%xy2(3,2)  = cT%ymax          !Estoy necesitando un "Convex Hull algorithm"
@@ -162,19 +163,20 @@ DO d=1,36                                                                      !
                       SIZ=SIZ .AND. S(i)%xy2(2) .GE. cT%ymin  
                       SIZ=SIZ .AND. min_tier_dist <= cT%L*5.0                 !minDist(reshape(S(i)%xy2,[1,2]), cT%xy2) <= cT%L*5.0
                       !SIZ=SIZ .AND. minDist(cT%xy2,reshape(S(i)%xy2,[1,2])) <= cT%L*5.0
-                      if ( SIZ  ) then 
-
+                      if ( SIZ ) then 
+if (d==11) print*,"      SIZ:",cT%id,cT%xmin,ct%xmax,ct%ymin,ct%ymax
                          cT%gsh   = cT%z0 + cT%hgt - S(i)%z0 + 1.5*cT%L        !GSH    [ Equation 1 (GEP, page 6) ]
                          cT%ybadj = S(i)%xy2(1) - (cT%xmin + cT%wid * 0.5)     !YBADJ = XPSTK - (XMIN(C) + TW*0.5 )
                          cT%xbadj = cT%ymin - S(i)%xy2(2)                      !XBADJ = YMIN(C) - YPSTK
-                                                                                          
+                                     
                          if ( maxGSH < cT%gsh .OR. ( maxGSH == cT%gsh .AND. refWID >= cT%wid) ) then 
+if (.true.) print*,"      USED:",cT%id, ct%gsh,ct%wid, maxGSH,refWID
                             maxGSH=cT%gsh
                             refWID=cT%wid
                             mT=cT
                          end if
                       endif
-                   endif !Tnum>2
+                   endif!Tnum>2
                 endif!T1%hgt < fT%hgt
              enddo!T1
            endif
@@ -251,7 +253,7 @@ real function DisLin2Point (X0, Y0, X1, Y1, XP, YP)                            !
        d=v-p                                                                   !diference vector
        dist=sqrt(dot_product(d,d))                                             !distance between the "tip" of the vectors
    else 
-       dist=abs(v(1)*p(2)-v(2)*p(1))/mod2v                                     !distance parametric line to point
+       dist=abs(v(1)*p(2)-v(2)*p(1))/mod2v                                     !distance parametric line to point:  |v x p| / |v|
    end if
    DISLIN2POINT = dist
 end function
@@ -294,7 +296,7 @@ logical function isInsideSIZ(S,T)       result(SIZ)
            if (SIZ) return!exit
        enddo
     endif
-    !SIZ = SIZ .AND. minDist(T%xy2, reshape(S%xy2,[1,2])) <= T%L*5.0     !creo que asi es igual o más lento
+    !SIZ = SIZ .AND. minDist(T%xy2, reshape(S%xy2,[1,2])) <= T%L*5.0     !asi es igual o más lento
 end function
 
 !STACK IS OVER ROOF? ******************************************************************************
@@ -398,23 +400,14 @@ subroutine ListCombinableTiers(T,B,DISTMN,TLIST,TNUM)
      tlist=0
      do i=1,size(B)                                                            !on each building
           do j=1,size(B(i)%T)                                                  !on each tier    
-             
              dist = DISTMN(T%id, B(i)%T(j)%id)                                 !get dist
              maxL =    max(T%L , B(i)%T(j)%L )                                 !"If the GREATER of each pair of Ls is greater than the minimum distance
-if ( d==11 .and. T%id == 2) print*,i,j,T%id, B(i)%T(j)%id,dist,maxL
-             !                                                                 ! between the two tiers, then the two tiers are considered to be combinable."
              if ( dist < maxL ) then                                           !if dist less than maxL tiers are "COMBINABLE"
                 tnum=tnum+1
                 tLIST(tnum,:)=[i,j]
-                !tLIST(tnum,2)=j
-                if ( d==11 .and. T%id == 2  ) print*,"c1,c2:",tnum
-                if ( d==11 .and. T%id == 2  ) print*,"c1,c2:",dist,maxL,dist<maxL
-                if ( d==11 .and. T%id == 2  ) print ('(6(I3))'),tlist(:,:)!.and. i==2
-
              endif
           enddo
      enddo
-
 end subroutine
 
 !INPUT:  ******************************************************************************************
