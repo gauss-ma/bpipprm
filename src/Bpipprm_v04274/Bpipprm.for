@@ -411,6 +411,8 @@ C
      &            Y1, Y11, Y12, Y2, Y21, Y22,
      &            YC, YI, YMAX, YMIN, YMN, YMX, YPSTK, YS
 
+      REAL :: maxGSH,refWID !DEBUG
+
       DOUBLE PRECISION A, B, AA, BB, DIRT, DIRTT, DTR2,
      +                 UEAST, UNORTH, X, XCOMP, Y, YCOMP
 
@@ -1166,10 +1168,8 @@ C Proceed, if more than 1 tier can be combined
 C Use every height in the TLIST set as the common height for combining
 C Create focal subgroups based on common height; store numbers in TLIST2
 
-
-      if (d==440) print*,"Focal Tier:",c1,W(C1),HT(C1),min(W(C1),HT(C1))
-
-
+      if (d==440) print*,"Focal Tier:",
+     * c1,W(C1),HT(C1),min(W(C1),HT(C1)),GEP(S)  !debug
 
           DO 122 T1 = 1, TN1
             TL1 = TLIST(C1,T1)
@@ -1212,7 +1212,10 @@ C If so, combine by examining the candidate corner coordinates
 C   with previous max & min values to derive overall combined width of
 C   tiers in focal subgroup.
 
-      if(d==440)print*," COMBINED:",C1,C2,"dist=",DISTMN(c1,c2),"L=",LTN
+      !if(d==440)print*," COMBINED:",C1,C2,"dist=",DISTMN(c1,c2),"L=",LTN !debug
+      if(d==440)print'(" COMBINED:",I2,I3,"dist=",F9.3," L=",F9.3)',  !debug
+     *  C1,C2,DISTMN(c1,c2),LTN
+
 
                 IF (XMIN(TL2) .LT. XMN) XMN = XMIN(TL2)
                 IF (XMAX(TL2) .GT. XMX) XMX = XMAX(TL2)
@@ -1246,6 +1249,8 @@ C                       VECTOR IS ALWAYS POINTING 'NORTH'.
 C
 C Perform only if more than one tier in focal tier subgroup
         IF (TNUM2(C1) .GT. 1) THEN
+      if (d==440) print*,"  TNUM2>0:",C1,"=[",TLIST2(c1,1:TNUM2(C1)),"]"
+
          DO 130 S = 1, NS
            XPSTK = XS(S) * CSA + YS(S) * SNA
            YPSTK = YS(S) * CSA - XS(S) * SNA
@@ -1256,7 +1261,7 @@ C
           FLG2 = ((YPSTK .GE. CYMN))
            IF (FLG1 .AND. FLG2) THEN
 
-      if (d==440) print*,"      SIZ:",C1,CXMN,CXMX,CYMN,CYMX   !debug
+!      if (d==440) print*,"      SIZ:",C1,CXMN,CXMX,CYMN,CYMX   !debug
 
 C            If source is within rectangle, check direct downwind
 C            distance from side of focal tier to stack. IBET = 1 if
@@ -1273,10 +1278,19 @@ C Set IBET to 1 if stack on or W/I 5L of tier side
 C If stack on top of roof, set IBET to 1
                 IF (LFLAT (S,C1) .EQ. 1) IBET = 1
                 IF (IBET .EQ. 1) THEN
+      if (d==440) print*,"      SIZ:",C1,CXMN,CXMX,CYMN,CYMX   !debug
+      refWID=GEPBW(1)
+      maxGSH=GEP(1)
+
                   CALL GPC (MB, MBT, MXTRS, MSK, BELEV, 
      *                      SB, GEP,GEPBH,GEPBW,GEPIN, TNUM2, TLIST2,
      *                      GTNUM, GTLIST, GDIRS, MI, MJ, 
      *                D, I, C1, S, TW, WS, HTA, TL1,2)
+
+
+      if (d==440) print*,"    USED:",C1,belev(I),HTA,SB(S),WS   
+      if (d==440) print*,"    USED:",C1,GEP(1),GEPBW(1),maxGSH,refWID !debug
+
                    GO TO 136
                 END IF
 131          CONTINUE
@@ -1299,13 +1313,26 @@ C
                 CALL DISLIN(X1, Y1, X2, Y2, L5, IBET, XPSTK, YPSTK)
                  IF (LFLAT (S,C2) .EQ. 1) IBET = 1
                  IF (IBET .EQ. 1) THEN
+      if (d==440) print*,"      SIZ*",C1,CXMN,CXMX,CYMN,CYMX   !debug
+      maxGSH=GEP(S)
+      refWID=GEPBW(S)
+
                    CALL GPC (MB, MBT, MXTRS, MSK, BELEV, 
      *                       SB, GEP,GEPBH,GEPBW,GEPIN, TNUM2, TLIST2,
      *                       GTNUM, GTLIST, GDIRS, MI, MJ, 
      *                D, I, C1, S, TW, WS, HTA, TL1, 2)
+
+      if (d==440) print*,"    USED*",C1,belev(I),HTA,SB(S),WS   
+      if (d==440) print*,"    USED*",C1,GEP(S),GEPBW(S),maxGSH,refWID !debug
+
+
                     GO TO 136
                  END IF
 132            CONTINUE
+
+C         GAP FILLING STRUCTURE 
+C         (GPS)  
+C
 C         If source is within rectangle, check direct downwind
 C          distance from side of gap filling structure (GFS) to stack.
 C          IBET = 1, if at or within 5L
@@ -1329,6 +1356,8 @@ C          IBET = 1, if at or within 5L
      *                         XPSTK, YPSTK)
                   IF (DIST .LE. L5) THEN
                    IF (IBET .EQ. 1) THEN
+
+      if (d==440) print*,"      SIZ1",C1,CXMN,CXMX,CYMN,CYMX   !debug
                      CALL GPC (MB, MBT, MXTRS, MSK, BELEV, 
      *                         SB, GEP,GEPBH,GEPBW,GEPIN, TNUM2, TLIST2,
      *                         GTNUM, GTLIST, GDIRS, MI, MJ, 
@@ -1345,6 +1374,8 @@ C                   perimeter of the GFS
                    CALL DISLIN(X21, Y21, XI, YI, L5, IBET, XPSTK, YPSTK)
                   IF (DIST .LE. L5) THEN
                    IF (IBET .EQ. 1) THEN
+
+      if (d==440) print*,"      SIZ2",C1,CXMN,CXMX,CYMN,CYMX   !debug
                      CALL GPC (MB, MBT, MXTRS, MSK, BELEV, 
      *                         SB, GEP,GEPBH,GEPBW,GEPIN, TNUM2, TLIST2,
      *                         GTNUM, GTLIST, GDIRS, MI, MJ, 
@@ -1358,12 +1389,13 @@ C                   perimeter of the GFS
                    CALL DISLIN(X11, Y11, XI, YI, L5, IBET, XPSTK, YPSTK)
                   IF (DIST .LE. L5) THEN
                    IF (IBET .EQ. 1) THEN
+
+      if (d==440) print*,"      SIZ3",C1,CXMN,CXMX,CYMN,CYMX   !debug
                      CALL GPC (MB, MBT, MXTRS, MSK, BELEV, 
      *                         SB, GEP,GEPBH,GEPBW,GEPIN, TNUM2, TLIST2,
      *                         GTNUM, GTLIST, GDIRS, MI, MJ, 
      *                         D, I, C1, S, TW, WS, HTA, TL1, 2)
 
-      !if (d==440) print*,"     USED:",C1, GEPBH(S), GEPBW(S)
                       GO TO 136
                    END IF
                   END IF
