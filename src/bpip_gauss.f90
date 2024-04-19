@@ -1,16 +1,16 @@
 program bpip_gauss
 implicit none
-!OBJETCS/TYPES ------------------------------------------------------------------------------------
+!OBJETCS/TYPES ----------------------------------------------------------------
 type tier
   integer :: id
-  double precision,allocatable :: xy(:,:)                                      !coords              (leido de inp NO CAMBIA)
-  real :: h,z0                                                                 !height,base hgt     (leido de inp NO CAMBIA)
+  double precision,allocatable :: xy(:,:)                                      !x-y coordinates     (from INP, NO CAMBIA)
+  real :: h,z0                                                                 !height,base hgt     (from INP, NO CAMBIA)
   !projected:
-  real,allocatable :: xy2(:,:)                                                 !coords              (cambia para c/wdir)
-  real :: xmin,xmax,ymin,ymax                                                  !boundaries          (cambia para c/wdir)
-  real :: hgt=0,wid=0,len=0.0                                                  !height,width,length (cambia para c/wdir)
-  real :: L=0.0                                                                !L: min{ wid , hgt } (cambia para c/wdir)
-  real :: gsh=0.0, xbadj=0.0, ybadj=0.0                                        !gep values          (cambia para c/stack y wdir)
+  real,allocatable :: xy2(:,:)                                                 !projected coords    (changes for each wdir)
+  real :: xmin,xmax,ymin,ymax                                                  !boundaries          (changes for each wdir)
+  real :: hgt=0,wid=0,len=0.0                                                  !height,width,length (changes for each wdir)
+  real :: L=0.0                                                                !L: min{ wid , hgt } (changes for each wdir)
+  real :: gsh=0.0, xbadj=0.0, ybadj=0.0                                        !GEP values          (changes for each stack y wdir)
 endtype
 
 type building
@@ -20,6 +20,7 @@ type building
 endtype
 
 type stack
+  integer          :: id
   character(8)     :: nombre
   real             :: z0, h
   real             :: xy(2), xy2(2)                                            !stack coords
@@ -36,49 +37,56 @@ type stkTable  !stacks table
   real         :: stkHeight, BaseElevDiff=-99.99, GEPEQN1=0.0, GEPSHV=65.0
 endtype
 
-!VARIABLES-----------------------------------------------------------------------------------------
-integer :: i,j,k,d!,dd
-
+!VARIABLES----------------------------------------------------------------------
 !global params:
 double precision, parameter :: pi=3.141593 !3.141592653589793_8
 double precision, parameter :: deg2rad=pi/180.0
 character(24),    parameter :: inputFileName="BPIP.INP"
 character(24),    parameter :: outputFileName="bpip.out"
-
+!indices:
+integer :: i,j,k,d,i1,i2!,dd
 !work variables:
-TYPE(building), allocatable :: B(:)                                            !array de edificios
-TYPE(stack), allocatable    :: S(:)                                            !array de stacks
-type(tier)                  :: fT,mT                                           !"focal" tier, max. GSH Tier
-character(78)               :: title
+character(78)               :: title                                           !title of the run
+TYPE(building), allocatable :: B(:)                                            !array of buildings
+TYPE(stack), allocatable    :: S(:)                                            !array of stacks
+type(tier)                  :: fT,mT                                           !"current" or "focal" Tier and "max. GSH" tier
+type(stack)                 :: Si                                              !"current" Stack
 double precision            :: wdir                                            !direccion del viento
-logical                     :: SIZ,ROOF
-real                        :: maxGSH,refWID                                   !max GSH and WID encountred (for given stack and wdir)
+logical                     :: SIZ!,ROOF                                       !struc. influence zone boolean flag
+real                        :: maxGSH,refWID!tmp                               !max GSH and WID encountred (for given stack and wdir)
 integer                     :: mxtrs                                           !max tier number found in input file
-! vars used for combined tiers
+real, allocatable   :: DISTMN(:,:),DISTMNS(:,:)                                !distance Matrices: tier-tier, tier-stack 
+! vars used for combine tiers
 type(tier)          :: cT,T1,T2                                                !"combined", "sub-group" and "merge-candidate" Tier
-real,allocatable    :: DISTMN(:,:)                                             !distances between all tiers
-integer,allocatable :: TLIST(:,:),TLIST2(:,:)                                  !list of combinable (w/focal) tiers indices
-integer             :: i1,i2,TNUM,TNUM2                                        !indices for t1 and t2, TNUM= # of combinable tiers, TNUM2=# of actual combined tiers.
+integer,allocatable :: TLIST(:,:)!TLIST2(:,:)                                  !list of combinable (w/focal) tiers indices
+integer,allocatable :: TLIST2(:)                                               !list of combined tiers ids
+integer             :: TNUM,TNUM2                                              !TNUM= # of combinable tiers, TNUM2=# of actual combined tiers.
 real                :: min_tier_dist                                           !min distance between stack and combined tiers
 !out tables:
 type(outTable), allocatable :: oTable(:)                                       !output table
 type(stkTable), allocatable :: sTable(:)                                       !stack  table
-!INPUT--------------------------------------------------------------------------------------------
+!INPUT--------------------------------------------------------------------------
 call readINP(inputFileName,B,S,title,mxtrs)                                    !read file & store data in B & S
 
 allocate(oTable(size(S)))                                                      !allocatar tabla de salida
 allocate(sTable(size(S)))                                                      !allocatar tabla de stacks
+allocate(DISTMNS(size(B)*mxtrs,size(S)))     ; DISTMNS=0.0 
 allocate(DISTMN(size(B)*mxtrs,size(B)*mxtrs)); DISTMN=0.0 
 allocate( TLIST(size(B)*mxtrs, 2 ))          ;  TLIST=0    
-allocate(TLIST2(size(B)*mxtrs, 2 ))          ; TLIST2=0    
-!MAIN----------------------------------------------------------------------------------------------
+allocate(TLIST2(size(B)*mxtrs))              ; TLIST2=0    
+!MAIN---------------------------------------------------------------------------
 
+!Building Indexing:
 do i=1,size(B);do j=1,size(B(i)%T)                                             !indexing tiers
   B(i)%T(j)%id=(i-1) * mxtrs + j                                               !give each tier an absolute ID
 enddo; enddo;
+
+!Stacks Indexing: stacks are indexed while reading input file by the order of ocurrence
+
+!Calculate things that have "rotational invariance":
 call check_which_stack_over_roof(S,B)                                          !check which stacks are placed over a roof.
-call calc_mindist_between_tiers(B,DISTMN)                                      !calc min distance between structures.
-DISTMN=DISTMN                                                                  !Agrego algo de tolerancia a las dist
+call calc_dist_stacks_tiers(S,B,DISTMNS)                                       !calc min distance between stacks and tiers.
+call calc_dist_tiers(B,DISTMN)                                                 !calc min distance between structures.
 
 DO d=1,36                                                                      !for each wdir (c/10 deg)
    wdir=d*10.0*deg2rad                                                         !get wdir [rad]
@@ -88,31 +96,36 @@ DO d=1,36                                                                      !
 
    DO i=1,size(S)                                                              !for each stack
      maxGSH=0.0; refWID=0.0
-
-     !Single tiers structs   ----------------------------------------------------------------------
+     Si=S(i)
+     !Single tiers structs   ---------------------------------------------------
      DO j=1,size(B)                                                            !for each building
         DO k=1,size(B(j)%T)                                                    !for each tier
 
            fT=B(j)%T(k)                                                        !create "focal" tier
 
-           SIZ  = isInsideSIZ(S(i), fT)                                        !check if stack on SIZ
-           ROOF = S(i)%whichRoof == fT%id                                      !check if stack over ROOF
-           if ( SIZ .or. ROOF ) then                                           !check if any condition meet
+           !check if stack is inside SIZ
+           SIZ=           Si%xy2(1) .GE. (fT%xmin - 0.5*fT%L)  
+           SIZ=SIZ .AND. (Si%xy2(1) .LE. (fT%xmax + 0.5*fT%L) )
+           SIZ=SIZ .AND. (Si%xy2(2) .GE. (fT%ymin - 2.0*fT%L) )
+           !SIZ=SIZ .AND. (y_stack .LE. (T%ymax + 5.0*T%L) )     !old
+           SIZ=SIZ .AND. DISTMNS(fT%id,i) <= 5*fT%L
+           if ( SIZ ) then                                                     
 
-              fT%gsh   = fT%z0 + fT%hgt - S(i)%z0 + 1.5*fT%L                    !GHS   [ Equation 1 (GEP, page 6) ]
-              fT%ybadj = S(i)%xy2(1) - (fT%xmin + fT%wid * 0.5)                 !YBADJ = XPSTK - (XMIN(C) + TW*0.5)
-              fT%xbadj = fT%ymin - S(i)%xy2(2)                                  !XBADJ = YMIN(C) - YPSTK             
+              fT%gsh   = fT%z0 + fT%hgt - Si%z0 + 1.5*fT%L                    !GHS   [ Equation 1 (GEP, page 6) ]
+              fT%ybadj = Si%xy2(1) - (fT%xmin + fT%wid * 0.5)                 !YBADJ = XPSTK - (XMIN(C) + TW*0.5)
+              fT%xbadj = fT%ymin - Si%xy2(2)                                  !XBADJ = YMIN(C) - YPSTK             
 
               if ( fT%gsh > maxGSH .or. (fT%gsh == maxGSH .and. fT%wid < refWid) ) then !check if this tier has > GHS than previous ones
                  maxGSH=fT%gsh                                                 !set new ref GSH value
                  refWID=fT%wid                                                 !store its WID
+
                  mT=fT                                                         !set fT as the max GSH Tier
               end if
            endif
         END DO!tiers
      END DO!buildings
 
-     !"COMBINED TIERS" ----------------------------------------------------------------------------
+     !"COMBINED TIERS" ---------------------------------------------------------
      DO j=1,size(B)                                                            !
         DO k=1,size(B(j)%T)                                                    !for each focal tier
 
@@ -120,7 +133,6 @@ DO d=1,36                                                                      !
            
            call ListCombinableTiers(fT, B, DISTMN,TLIST,TNUM)                  !list combinable tiers and distances
 
-           !if ( .false. ) then  !do not execute combined tiers calculations
            if ( TNUM > 0 ) then
              do i1=1,TNUM                                                      !on each combinable tier
                 T1=B( TLIST(i1,1))%T( TLIST(i1,2) )                            !create "subgrup" tier "T1"
@@ -130,7 +142,6 @@ DO d=1,36                                                                      !
                    cT%hgt = T1%hgt                                             !use T1_hgt as "common subgroup height"
                    cT%L   = min(cT%hgt, cT%wid)                                !update L
 
-                   min_tier_dist=minDist(fT%xy2, reshape(S(i)%xy2,[1,2]))      !reset min_tier_dist w/distance fT-stack
                    TNUM2=0                                                     !reset counter of combined tiers (tnum2) to 0
                    TLIST2=0                                                    !reset counter of combined tiers (tnum2) to 0
                    do i2=1,TNUM                                                !on each combinable candidate tier
@@ -138,39 +149,42 @@ DO d=1,36                                                                      !
                       T2%L=min(cT%hgt, T2%wid) !line 1213 de bpip orig use T2-L=min(T1hgt,T2wid)
                       if ( T2%hgt >= cT%hgt .and. T2%id /= cT%id ) then        !if T2_hgt >= common hgt, and is not cT
                          if ( DISTMN(cT%Id,T2%id) < max(T2%L, cT%L)) then      !if dist T2-fT is less than the maxL
-                            call combineTiers(cT,T2)                           !combine common Tier w/ T2 ! (update boundaries)
 
-                            min_tier_dist=min(min_tier_dist, minDist(T2%xy2, reshape(S(i)%xy2,[1,2])) )  !calc min dist to stack for further use..
+                            !call combineTiers(cT,T2)                           !combine common Tier w/ T2 ! (update boundaries)
+                            cT%xmin=min(cT%xmin, T2%xmin) 
+                            cT%xmax=max(cT%xmax, T2%xmax)
+                            cT%ymin=min(cT%ymin, T2%ymin)
+                            cT%ymax=max(cT%ymax, T2%ymax)
+
                             TNUM2=TNUM2+1                                      !increment counter of combined tiers (tnum2)
-                            TLIST2(TNUM2,:)=TLIST(i2,:)                        !save indices of combined tier
-
+                            TLIST2(TNUM2)=T2%id
                         endif
                       endif  
                    enddo                                                       !
                                                                                !Once all tiers has been combined w/tC
                    if ( TNUM2 > 0 ) then                                       !if there was at least 1 combined tier
 
-                      cT%wid = cT%xmax - cT%xmin                               !update wid
-                      cT%len = cT%ymax - cT%ymin                               !update len
-                      cT%L   = min(cT%hgt, cT%wid)                             !update L
+                      cT%wid = cT%xmax - cT%xmin                               !update width
+                      cT%len = cT%ymax - cT%ymin                               !update length
+                      cT%L   = min(cT%hgt, cT%wid)                             !update "L"
 
+                      min_tier_dist=minval(DISTMNS([fT%id,TLIST2(:TNUM2)],i))
                       !
-                      !Here I need to define Gap Filling Structure (GFS) 
-                      !and use it to determine SIZ-L5 distance stack-GFS is satisfied
+                      !Here I need to define the Gap Filling Structure (GFS) polygon
+                      !and use it to determine if SIZ-L5 distance stack-GFS is satisfied
                       !(could be solved using a "CONVEX HULL" algorithm, for example: Graham Scan Algorithm )
                       !
 
-                      SIZ=          S(i)%xy2(1) .GE. cT%xmin-0.5*cT%L          !this is how SIZ is defined for comb Tiers
-                      SIZ=SIZ .AND. S(i)%xy2(1) .LE. cT%xmax+0.5*cT%L          !Struc Influence Zone (SIZ)
-                      SIZ=SIZ .AND. S(i)%xy2(2) .GE. cT%ymin-2.0*cT%L  
-                      !SIZ=SIZ .AND. S(i)%xy2(2) .LE. cT%ymmax+5*cT%L !old
-                      SIZ=SIZ .AND. min_tier_dist <= cT%L*5.0                  !any of tiers combined is closer than cT%L*5.0 from stack
+                      SIZ=          Si%xy2(1) .GE. cT%xmin-0.5*cT%L          !this is how SIZ is defined for comb Tiers
+                      SIZ=SIZ .AND. Si%xy2(1) .LE. cT%xmax+0.5*cT%L          !Struc Influence Zone (SIZ)
+                      SIZ=SIZ .AND. Si%xy2(2) .GE. cT%ymin-2.0*cT%L  
+                      SIZ=SIZ .AND. min_tier_dist <= cT%L*5.0                !any of tiers combined is closer than cT%L*5.0 from stack
 
                       if ( SIZ ) then 
 
-                         cT%gsh   = cT%z0 + cT%hgt - S(i)%z0 + 1.5*cT%L        !GSH    [ Equation 1 (GEP, page 6) ]
-                         cT%ybadj = S(i)%xy2(1) - (cT%xmin + cT%wid * 0.5)     !YBADJ = XPSTK - (XMIN(C) + TW*0.5 )
-                         cT%xbadj = cT%ymin - S(i)%xy2(2)                      !XBADJ = YMIN(C) - YPSTK
+                         cT%gsh   = cT%z0 + cT%hgt - Si%z0 + 1.5*cT%L        !GSH    [ Equation 1 (GEP, page 6) ]
+                         cT%ybadj = Si%xy2(1) - (cT%xmin + cT%wid * 0.5)     !YBADJ = XPSTK - (XMIN(C) + TW*0.5 )
+                         cT%xbadj = cT%ymin - Si%xy2(2)                      !XBADJ = YMIN(C) - YPSTK
 
                          if ( cT%gsh > maxGSH .OR. ( maxGSH == cT%gsh .AND. cT%wid < refWID ) ) then 
                             maxGSH=cT%gsh
@@ -178,21 +192,21 @@ DO d=1,36                                                                      !
                             mT=cT
                          end if
                       endif
-                   endif!Tnum>2
+                   endif!TNUM2>0
                 endif!T1%hgt < fT%hgt
              enddo!T1
-           endif
+           endif!TNUM>0
         END DO!tiers
      END DO!buildings
      
      !Add results to Out-Table/Stk-Table
-     oTable(i)%stkName  = S(i)%nombre
-     sTable(i)%stkName  = S(i)%nombre
-     sTable(i)%stkHeight= S(i)%h
+     oTable(i)%stkName  = Si%nombre
+     sTable(i)%stkName  = Si%nombre
+     sTable(i)%stkHeight= Si%h
      if ( maxGSH /= 0.0 ) then    !if ( any_tier_affects_stack_at_this_wdir ) then
         oTable(i)%tabla(d,1:6)=[ sngl(wdir),mT%hgt,mT%wid,mT%len,mT%xbadj,mT%ybadj ] 
         if ( maxGSH > sTable(i)%GEPEQN1 ) then
-           sTable(i)%BaseElevDiff = S(i)%z0 - mT%z0
+           sTable(i)%BaseElevDiff = Si%z0 - mT%z0
            sTable(i)%GEPEQN1      = mT%gsh 
            sTable(i)%GEPSHV       = max(65.0, mT%gsh)
         endif
@@ -203,19 +217,18 @@ DO d=1,36                                                                      !
    END DO!stacks
 END DO!wdir
 
-!OUTPUT:-------------------------------------------------------------
+!OUTPUT:-----------------------------------------------------------------------
 call writeOUT(oTable,sTable,title,outputFileName)
 
 WRITE(*,'(/,A,/)') ' END OF BPIP RUN.'
 contains
-!GEOMETRY   ***************************************************************************************
-subroutine rotateCoords(B,S,wdir) !Calculo de nuevas coordenadas
+!GEOMETRY   ********************************************************************
+subroutine rotateCoords(B,S,wdir) !Calc "new" (rotated) coordinates: xy --> xy2
     implicit none
     type(building),intent(inout) :: B(:)
     type(stack), intent(inout)   :: S(:)
     real,             intent(in) :: wdir  !original
-    !double precision,intent(in) :: wdir
-    double precision :: D(2,2)    !usan distinta precision para stacks y buildings :/
+    double precision :: D(2,2)   !usan distinta precision para stacks y buildings :/
     real             :: R(2,2)   !usan distinta precision para stacks y buildings :/
     integer :: i,j,k
     !matriz de rotación:       
@@ -261,66 +274,51 @@ real function DisLin2Point (X0, Y0, X1, Y1, XP, YP)                            !
 end function
 
 real function minDist(xy1,xy2)            
-     !min distance between two polygons
-     real           ,intent(in) :: xy1(:,:), xy2(:,:)
-     integer :: i,j,k,n,m
-     m=size(xy1(:,1))
-     n=size(xy2(:,1))
-     minDist=1e20
-     do i=1,n
+   !min distance between two polygons
+   real           ,intent(in) :: xy1(:,:), xy2(:,:)
+   integer :: i,j,k,n,m
+   m=size(xy1(:,1))
+   n=size(xy2(:,1))
+   minDist=1e20
+   do i=1,n
      do j=1,m
-        k=mod(j,m)+1
-        minDist=min(minDist,dislin2point( xy1(j,1),xy1(j,2),  xy1(k,1),xy1(k,2), xy2(i,1), xy2(i,2)) )  !new! (faster)
+       k=mod(j,m)+1
+       minDist=min(minDist,dislin2point( xy1(j,1),xy1(j,2),  xy1(k,1),xy1(k,2), xy2(i,1), xy2(i,2)) )  !new! (faster)
      enddo
-     enddo
+   enddo
 end function
 
-!STRUCTURE INFLUENCE ZONE (SIZ) *******************************************************************
-logical function isInsideSIZ(S,T)       result(SIZ)  
-    ! check if Stack is over influence of a tier (Structure Influence Zone, SIZ)
-    implicit none
-    type(stack), intent(in) :: S
-    type(tier), intent(in)  :: T
-    real            :: x_stack,y_stack
-    integer ::i,j,n
-    x_stack=S%xy2(1) 
-    y_stack=S%xy2(2) 
-    
-    SIZ=           x_stack .GE. (T%xmin - 0.5*T%L)  
-    SIZ=SIZ .AND. (x_stack .LE. (T%xmax + 0.5*T%L) )
-    SIZ=SIZ .AND. (y_stack .GE. (T%ymin - 2.0*T%L) )
-    !SIZ=SIZ .AND. (y_stack .LE. (T%ymax + 5.0*T%L) )     !old
-    if ( SIZ ) then
-       n=size(T%xy2(:,1))
-       do i=1,n
-           j=mod(i,n)+1
-           SIZ = dislin2point(T%xy2(i,1), T%xy2(i,2), T%xy2(j,1),T%xy2(j,2), x_stack,y_stack) <= T%L*5.0
-           if (SIZ) return!exit
-       enddo
-    endif
-end function
-
-!STACK IS OVER ROOF? ******************************************************************************
+!logical function point_is_in_poly(point,poly)    result(inTier) 
 logical function isInsideTier(S,T)    result(inTier) 
+    !idea: if point inside poly, then sum of angles from p to consecutive corners (sides) must be == 2*pi
     implicit none
+    !real  :: point(:,:),poly(:,:)
     type(stack), intent(in) :: S
     type(tier), intent(in)  :: T
-    double precision:: angle,signo=1.0
+    double precision:: angle_sum=0.0,angle=0.0,signo=1.0,v1_dot_v1,v2_dot_v2
     double precision:: v1(2), v2(2), p(2)
     integer :: i,j,n!,k
     p=dble(S%xy)
-    angle=0.0
     n=size(T%xy(:,1))
     do i=1,n
         j=mod(i,n)+1
         v1=T%xy(i,:)-p
         v2=T%xy(j,:)-p
-        signo = dsign(signo,v1(1)*v2(2)-v1(2)*v2(1))      !sign of 3rd-component v1 x v2 (cross prod)
-        angle = angle + signo * dacos( dot_product(v1,v2) / sqrt(abs(dot_product(v1,v1)*dot_product(v2,v2))))  !OJO FUENTE DE ERROR si |v1| o |v2| == 0!
+        v1_dot_v1=dot_product(v1,v1)
+        v2_dot_v2=dot_product(v2,v2) 
+        if (v1_dot_v1 == 0 .or. v2_dot_v2 == 0) then !this would means that v1 or v2 == p
+           inTier=.true.
+           return
+         else
+           signo = dsign(signo,v1(1)*v2(2)-v1(2)*v2(1))      !sign of 3rd-component v1 x v2 (cross prod)
+           angle = dacos( dot_product(v1,v2) / sqrt(v1_dot_v1*v2_dot_v2) )
+           angle_sum = angle_sum + signo * angle
+        end if
     enddo
     inTier=(ABS(2*pi - ABS(angle)) .LT. 1e-4) 
 end function
 
+!STACK IS OVER ROOF? ******************************************************************************
 subroutine check_which_stack_over_roof(S,B)
     implicit none
     type(stack) ,intent(inout) :: S(:)
@@ -330,6 +328,7 @@ subroutine check_which_stack_over_roof(S,B)
     DO i=1,size(S)                                                             !for each stack
        DO j=1,size(B)                                                          !for each building
            DO k=1,size(B(j)%T)                                                 !for each tier
+             !if ( point_is_in_poly(S(i)%xy, B(j)%T(k)%xy ) ) then
              if ( isInsideTier(S(i), B(j)%T(k)) ) then
                 print '(A10,"=>",A10)',S(i)%nombre, B(j)%nombre
                 S(i)%whichRoof = (I-1) * MXTRS + J ![j,k] 
@@ -352,8 +351,29 @@ subroutine calcTierProyectedValues(T) !Calculo de XMIN XMAX YMIN YMAX,WID,HGT,LE
     T%L   = min(T%wid, T%hgt)
 end subroutine
 !
-!MERGE TIERS **************************************************************************************
-subroutine calc_mindist_between_tiers(B,Matrix)
+subroutine calc_dist_stacks_tiers(S,B,Matrix)
+   implicit none
+   type(stack),intent(in)       :: S(:)        
+   type(building),intent(in)    :: B(:)        
+   real,          intent(inout) :: Matrix(:,:)
+   integer :: i,j,k,idt
+   print*, "Calculate min distance between tiers and stacks"
+   do i=1,size(S)                                                              !on each stack
+   do j=1,size(B)                                                              !on each building
+   do k=1,size(B(j)%T)                                                         !on each tier
+      idt= B(j)%T(k)%id                                                        !get tier id 
+          if ( S(i)%whichRoof == B(j)%T(k)%id ) then
+             Matrix(idt,i) = 0.0
+          else
+             Matrix(idt,i) = mindist(sngl(B(j)%T(k)%xy), reshape(sngl(S(i)%xy),[1,2]))  !store min distance between structures
+          end if
+   end do 
+   end do 
+   end do 
+   !print '(25(F9.4))',Matrix !debug
+end subroutine
+
+subroutine calc_dist_tiers(B,Matrix)
    implicit none
    type(building),intent(in)    :: B(:)        
    real,          intent(inout) :: Matrix(:,:)
@@ -377,16 +397,7 @@ subroutine calc_mindist_between_tiers(B,Matrix)
    !print '(6(F9.4))',Matrix !debug
 end subroutine
 
-subroutine combineTiers(t1,t2) 
-    implicit none
-    type(tier),intent(inout) :: T1
-    type(tier),intent(in   ) :: T2
-    T1%xmin=min(T1%xmin, T2%xmin) 
-    T1%xmax=max(T1%xmax, T2%xmax)
-    T1%ymin=min(T1%ymin, T2%ymin)
-    T1%ymax=max(T1%ymax, T2%ymax)
-end subroutine
-
+!MERGE TIERS **************************************************************************************
 subroutine ListCombinableTiers(T,B,DISTMN,TLIST,TNUM)
     implicit none
     type(tier)    ,intent(in)    :: T                                          !"focal" Tier
@@ -410,7 +421,6 @@ subroutine ListCombinableTiers(T,B,DISTMN,TLIST,TNUM)
           enddo
      enddo
 end subroutine
-
 !INPUT:  ******************************************************************************************
 subroutine readINP(inp_file,B,S,title,mxtrs) 
         implicit none
@@ -452,6 +462,7 @@ subroutine readINP(inp_file,B,S,title,mxtrs)
         allocate(S(ns)) 
         do i=1,ns,1 !read stacks
                 read(1,*) S(i)%nombre, S(i)%z0, S(i)%h, S(i)%xy(1), S(i)%xy(2)    !name z0 h x y
+                S(i)%id=i !stacks are indexed by order of aparence on input file
         end do
 
         close(1)
