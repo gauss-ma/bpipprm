@@ -25,6 +25,8 @@ type stack
   real             :: z0, h
   real             :: xy(2), xy2(2)                                            !stack coords
   integer          :: whichRoof=0                                              !id to the roof where this stack is placed
+  character(8)     :: roofName =""                                             !building name of where stack is placed
+  logical          :: isOnRoof =.false.                                        !boolean flag that states if stack is over roof
 endtype
 
 type outTable  !output table
@@ -41,8 +43,12 @@ endtype
 !global params:
 double precision, parameter :: pi=3.141593 !3.141592653589793_8
 double precision, parameter :: deg2rad=pi/180.0
-character(24),    parameter :: inputFileName="BPIP.INP"
-character(24),    parameter :: outputFileName="bpip.out"
+character(24),    parameter ::   inputFileName="BPIP.INP"
+character(24),    parameter ::  outputFileName="bpip.out"
+character(24),    parameter :: summaryFileName="bpip.sum"
+!setup params
+character (len=10) :: SWTN  ='P ', UNITS ="METERS    ",UTMP  ="UTMN"!SWTN UNITS !UTMP
+real :: FCONV = 1.00, PNORTH=0.00                                   !PNORTH !FCONV
 !indices:
 integer :: i,j,k,d,i1,i2!,dd
 !work variables:
@@ -54,7 +60,7 @@ type(stack)                 :: Si                                              !
 double precision            :: wdir                                            !direccion del viento
 logical                     :: SIZ!,ROOF                                       !struc. influence zone boolean flag
 real                        :: maxGSH,refWID!tmp                               !max GSH and WID encountred (for given stack and wdir)
-integer                     :: mxtrs                                           !max tier number found in input file
+integer                     :: mxtrs, gtnum                                   !max tier number found in input file
 real, allocatable   :: DISTMN(:,:),DISTMNS(:,:)                                !distance Matrices: tier-tier, tier-stack 
 ! vars used for combine tiers
 type(tier)          :: cT,T1,T2                                                !"combined", "sub-group" and "merge-candidate" Tier
@@ -76,27 +82,25 @@ allocate( TLIST(size(B)*mxtrs, 2 ))          ;  TLIST=0
 allocate(TLIST2(size(B)*mxtrs))              ; TLIST2=0    
 !MAIN---------------------------------------------------------------------------
 
-!Building Indexing:
-do i=1,size(B);do j=1,size(B(i)%T)                                             !indexing tiers
-  B(i)%T(j)%id=(i-1) * mxtrs + j                                               !give each tier an absolute ID
-enddo; enddo;
-
-!Stacks Indexing: stacks are indexed while reading input file by the order of ocurrence
-
 !Calculate things that have "rotational invariance":
 call check_which_stack_over_roof(S,B)                                          !check which stacks are placed over a roof.
 call calc_dist_stacks_tiers(S,B,DISTMNS)                                       !calc min distance between stacks and tiers.
 call calc_dist_tiers(B,DISTMN)                                                 !calc min distance between structures.
 
+!if ( mod(int(pnorth),360) /= 0 ) call rotate_coordinates(B,S,sngl(-pnorth*deg2rad)) 
+!call writeSUM1(summaryFileName,S,B,title)                                     !write 1st part of summary file.
+
 DO d=1,36                                                                      !for each wdir (c/10 deg)
-   wdir=d*10.0*deg2rad                                                         !get wdir [rad]
+   
+   wdir=d*10.0*deg2rad - pnorth*deg2rad                                        !get wdir [rad] 
    print '("      Wind flow passing", I4," degree direction.")', d*10 
 
-   call rotateCoords(B,S,sngl(wdir))                                           !rotate coordinates (T%xy S%xy -> T%xy2 S%xy2)
+   call rotate_coordinates(B,S,sngl(wdir))                                           !rotate coordinates (T%xy S%xy -> T%xy2 S%xy2)
 
    DO i=1,size(S)                                                              !for each stack
      maxGSH=0.0; refWID=0.0
      Si=S(i)
+     gtnum=0 !# of tiers affecting stack
      !Single tiers structs   ---------------------------------------------------
      DO j=1,size(B)                                                            !for each building
         DO k=1,size(B(j)%T)                                                    !for each tier
@@ -110,6 +114,7 @@ DO d=1,36                                                                      !
            !SIZ=SIZ .AND. (y_stack .LE. (T%ymax + 5.0*T%L) )     !old
            SIZ=SIZ .AND. DISTMNS(fT%id,i) <= 5*fT%L
            if ( SIZ ) then                                                     
+              gtnum=gtnum+1
 
               fT%gsh   = fT%z0 + fT%hgt - Si%z0 + 1.5*fT%L                    !GHS   [ Equation 1 (GEP, page 6) ]
               fT%ybadj = Si%xy2(1) - (fT%xmin + fT%wid * 0.5)                 !YBADJ = XPSTK - (XMIN(C) + TW*0.5)
@@ -223,7 +228,7 @@ call writeOUT(oTable,sTable,title,outputFileName)
 WRITE(*,'(/,A,/)') ' END OF BPIP RUN.'
 contains
 !GEOMETRY   ********************************************************************
-subroutine rotateCoords(B,S,wdir) !Calc "new" (rotated) coordinates: xy --> xy2
+subroutine rotate_coordinates(B,S,wdir) !Calc "new" (rotated) coordinates: xy --> xy2
     implicit none
     type(building),intent(inout) :: B(:)
     type(stack), intent(inout)   :: S(:)
@@ -307,7 +312,7 @@ logical function isInsideTier(S,T)    result(inTier)
         v1_dot_v1=dot_product(v1,v1)
         v2_dot_v2=dot_product(v2,v2) 
         if (v1_dot_v1 == 0 .or. v2_dot_v2 == 0) then !this would means that v1 or v2 == p
-           inTier=.true.
+           inTier=.true. ! or .false.? (something to discus)
            return
          else
            signo = dsign(signo,v1(1)*v2(2)-v1(2)*v2(1))      !sign of 3rd-component v1 x v2 (cross prod)
@@ -331,7 +336,9 @@ subroutine check_which_stack_over_roof(S,B)
              !if ( point_is_in_poly(S(i)%xy, B(j)%T(k)%xy ) ) then
              if ( isInsideTier(S(i), B(j)%T(k)) ) then
                 print '(A10,"=>",A10)',S(i)%nombre, B(j)%nombre
+                S(i)%isOnRoof  = .true.
                 S(i)%whichRoof = (I-1) * MXTRS + J ![j,k] 
+                S(i)%roofName  = B(j)%nombre
                 return!exit
              endif
           enddo
@@ -434,39 +441,48 @@ subroutine readINP(inp_file,B,S,title,mxtrs)
 
         WRITE(*,'(/,A,/)') ' READING INPUT DATA FROM FILE.'
         open(1,file=inp_file,action="READ")
-        
-        read(1,*) title !titulo
-        read(1,*) !options 'P'
-        read(1,*) !units        & factor of correction
-        read(1,*) !coord system & initial angle
-        
-        !BUILDINGS:
-        read(1,*) nb                              !# buildings
-        allocate(B(nb)) 
-        do i=1,nb,1                               !read buildings and tiers
-           read(1,*) B(i)%nombre,nt,B(i)%z0       !name ntiers z0
-           mxtrs=max(mxtrs,nt)  
-           allocate(B(i)%T(nt))
-           do j=1,nt,1
-              B(i)%T(j)%z0=B(i)%z0  
-              read(1,*) nn, B(i)%T(j)%h !hgt  !nn hgt
-              allocate(B(i)%T(j)%xy(nn,2))
-              allocate(B(i)%T(j)%xy2(nn,2))
-              do k=1,nn,1
-                 read(1,*) B(i)%T(j)%xy(k,1), B(i)%T(j)%xy(k,2)     !x y
-              enddo
-           enddo
-        end do
-        !STACKS:       
-        read(1,*)ns  !#stacks
-        allocate(S(ns)) 
-        do i=1,ns,1 !read stacks
-                read(1,*) S(i)%nombre, S(i)%z0, S(i)%h, S(i)%xy(1), S(i)%xy(2)    !name z0 h x y
-                S(i)%id=i !stacks are indexed by order of aparence on input file
-        end do
-
+          !HEADER: 
+          read(1,*) title         !titulo
+          read(1,*) SWTN          !run options 'P', 'NP', 'ST', 'LT'
+          read(1,*) UNITS, FCONV  !units        & factor of correction
+          read(1,*) UTMP , PNORTH !coord system & initial angle
+          !BUILDINGS:
+          read(1,*) nb                              !# buildings
+          allocate(B(nb)) 
+          do i=1,nb,1                               !read buildings and tiers
+             read(1,*) B(i)%nombre,nt,B(i)%z0       !name ntiers z0
+             B(i)%z0=B(i)%z0*FCONV                  !convert hgt units to meters
+             mxtrs=max(mxtrs,nt)  
+             allocate(B(i)%T(nt))
+             do j=1,nt,1
+                B(i)%T(j)%z0=B(i)%z0                !asign tier same base elev tha building
+                read(1,*) nn, B(i)%T(j)%h !hgt  !nn hgt
+                B(i)%T(j)%h=B(i)%T(j)%h*FCONV       !convert hgt units to meters
+                allocate(B(i)%T(j)%xy(nn,2))
+                allocate(B(i)%T(j)%xy2(nn,2))
+                do k=1,nn,1
+                   read(1,*) B(i)%T(j)%xy(k,1), B(i)%T(j)%xy(k,2)     !x y
+                enddo
+             enddo
+          end do
+          !STACKS:       
+          read(1,*)ns  !#stacks
+          allocate(S(ns)) 
+          do i=1,ns,1 !read stacks
+                  read(1,*) S(i)%nombre, S(i)%z0, S(i)%h, S(i)%xy(1), S(i)%xy(2)    !name z0 h x y
+                  S(i)%id=i !stacks are indexed by order of aparence on input file
+                  S(i)%z0=S(i)%z0*FCONV
+          end do
         close(1)
         WRITE(*,'(/,A,/)') ' END OF READING INPUT DATA FROM FILE.'
+        !----------------------------------------------------------------------
+        ! INDEXING
+        !Building Indexing:
+        do i=1,size(B);do j=1,size(B(i)%T)                                             !indexing tiers
+          B(i)%T(j)%id=(i-1) * mxtrs + j                                               !give each tier an absolute ID
+        enddo; enddo;
+        !Stacks Indexing: stacks are indexed while reading input file by the order of ocurrence
+        !----------------------------------------------------------------------
 end subroutine
 !OUTPUT: ******************************************************************************************
 subroutine writeOUT(oT,sT,title,outputFileName)
@@ -477,99 +493,100 @@ subroutine writeOUT(oT,sT,title,outputFileName)
     type(stkTable), intent(in) :: st(:)
     character(24),intent(in) :: outputFileName
 
-    open(2,file=outputFileName,action="WRITE")
-        WRITE (2,'(1X,A78,/)') TITLE
+    open(12,file=outputFileName,action="WRITE")
+        WRITE(12,'(1X,A78,/)') TITLE
         !DATE:
-        call writeDATE()
-        WRITE (2,'(1X,A78,/)') TITLE
-        WRITE(2,*) '============================'
-        WRITE(2,*) 'BPIP PROCESSING INFORMATION:'
-        WRITE(2,*) '============================'
+        call writeDATE(12)
+        WRITE(12,'(1X,A78,/)') TITLE
+        WRITE(12,*) '============================'
+        WRITE(12,*) 'BPIP PROCESSING INFORMATION:'
+        WRITE(12,*) '============================'
         !
-        WRITE(2,"(/3X,'The ',A2,' flag has been set for preparing downwash',' related data',10X)") 'P '
-        WRITE(2,"('          for a model run utilizing the PRIME algorithm.',/)"                 )
-        WRITE(2,"(3X,'Inputs entered in ',A10,' will be converted to ','meters using ')"         ) "METERS    "
-        WRITE(2,"(3X,' a conversion factor of',F10.4,'.  Output will be in meters.',/)"          ) 1.00
-        WRITE(2,"(3X,'UTMP is set to ',A4,'.  The input is assumed to be in',' a local')"        ) "UTMN"
-        WRITE(2,"(3x,' X-Y coordinate system as opposed to a UTM',' coordinate system.')"        )
-        WRITE(2,"(3x,' True North is in the positive Y',' direction.',/)")
-        WRITE(2,"(3X,'Plant north is set to',F7.2,' degrees with respect to',' True North.  ',//)") 0.00
-        WRITE (2,'(1X,A78,///)') TITLE
+        WRITE(12,"(/3X,'The ',A2,' flag has been set for preparing downwash',' related data',10X)")  SWTN   !'P '
+        WRITE(12,"('          for a model run utilizing the PRIME algorithm.',/)"                 ) 
+        WRITE(12,"(3X,'Inputs entered in ',A10,' will be converted to ','meters using ')"         )  UNITS  !"METERS    "
+        WRITE(12,"(3X,' a conversion factor of',F10.4,'.  Output will be in meters.',/)"          )  FCONV  !1.00
+        WRITE(12,"(3X,'UTMP is set to ',A4,'.  The input is assumed to be in',' a local')"        )  UTMP   !"UTMN"
+        WRITE(12,"(3x,' X-Y coordinate system as opposed to a UTM',' coordinate system.')"        ) 
+        WRITE(12,"(3x,' True North is in the positive Y',' direction.',/)")                                 ! 
+        WRITE(12,"(3X,'Plant north is set to',F7.2,' degrees with respect to',' True North.  ',//)") PNORTH ! 0.00
+        WRITE(12,'(1X,A78,///)') TITLE
         !STACK RESULTS
-        WRITE(2,"(16X,'PRELIMINARY* GEP STACK HEIGHT RESULTS TABLE')")
-        WRITE(2,"(13X,'            (Output Units: meters)',/)")
-        WRITE(2,"(8X,'                    Stack-Building            Preliminary*')")
-        WRITE(2,"(8X,' Stack    Stack     Base Elevation    GEP**   GEP Stack')")
-        WRITE(2,"(8X,' Name     Height    Differences       EQN1    Height Value',//)")
+        WRITE(12,"(16X,'PRELIMINARY* GEP STACK HEIGHT RESULTS TABLE')")
+        WRITE(12,"(13X,'            (Output Units: meters)',/)")
+        WRITE(12,"(8X,'                    Stack-Building            Preliminary*')")
+        WRITE(12,"(8X,' Stack    Stack     Base Elevation    GEP**   GEP Stack')")
+        WRITE(12,"(8X,' Name     Height    Differences       EQN1    Height Value',//)")
         do i=1,size(sT,1)
            if ( st(i)%BaseElevDiff .EQ. -99.99 ) then
               !                                                   STKN(S),       SH(S),         GEP(S),    PV
-              WRITE(2,'(8X, A8, F8.2, 10X, "N/A",5X,3(F8.2,5X))') st(i)%stkName, st(i)%stkHeight, st(i)%GEPEQN1, st(i)%GEPSHV 
+              WRITE(12,'(8X, A8, F8.2, 10X, "N/A",5X,3(F8.2,5X))') st(i)%stkName, st(i)%stkHeight, st(i)%GEPEQN1, st(i)%GEPSHV 
            else
               !                                STKN(S),        SH(S),           DIF,                 GEP(S),       PV
-              WRITE(2,'(8X, A8, 4(F8.2,5X))') st(i)%stkName, st(i)%stkHeight, st(i)%BaseElevDiff, st(i)%GEPEQN1, st(i)%GEPSHV
+              WRITE(12,'(8X, A8, 4(F8.2,5X))') st(i)%stkName, st(i)%stkHeight, st(i)%BaseElevDiff, st(i)%GEPEQN1, st(i)%GEPSHV
            end if
         end do
-        WRITE(2,"(/,'   * Results are based on Determinants 1 & 2 on pages 1',' & 2 of the GEP')   ")
-        WRITE(2,"( '     Technical Support Document.  Determinant',' 3 may be investigated for')  ")
-        WRITE(2,"( '     additional stack height cred','it.  Final values result after')          ")
-        WRITE(2,"( '     Determinant 3 has been ta','ken into consideration.')                    ")
-        WRITE(2,"( '  ** Results were derived from Equation 1 on page 6 of GEP Tech','nical')     ")
-        WRITE(2,"( '     Support Document.  Values have been adjusted for a','ny stack-building') ")
-        WRITE(2,"( '     base elevation differences.',/)                                          ")
-        WRITE(2,"( '     Note:  Criteria for determining stack heights for modeling',' emission') ")
-        WRITE(2,"( '     limitations for a source can be found in Table 3.1 of the')              ")
-        WRITE(2,"( '     GEP Technical Support Document.')                                        ")
-        WRITE(2,"(/,/,/,/)")
+        WRITE(12,"(/,'   * Results are based on Determinants 1 & 2 on pages 1',' & 2 of the GEP')   ")
+        WRITE(12,"( '     Technical Support Document.  Determinant',' 3 may be investigated for')  ")
+        WRITE(12,"( '     additional stack height cred','it.  Final values result after')          ")
+        WRITE(12,"( '     Determinant 3 has been ta','ken into consideration.')                    ")
+        WRITE(12,"( '  ** Results were derived from Equation 1 on page 6 of GEP Tech','nical')     ")
+        WRITE(12,"( '     Support Document.  Values have been adjusted for a','ny stack-building') ")
+        WRITE(12,"( '     base elevation differences.',/)                                          ")
+        WRITE(12,"( '     Note:  Criteria for determining stack heights for modeling',' emission') ")
+        WRITE(12,"( '     limitations for a source can be found in Table 3.1 of the')              ")
+        WRITE(12,"( '     GEP Technical Support Document.')                                        ")
+        WRITE(12,"(/,/,/,/)")
         !DATE (AGAIN)
-        call writeDATE()
-        WRITE (2,'(//,1X,A78,/)') TITLE
-        WRITE (2, *) ' BPIP output is in meters'
+        call writeDATE(12)
+        WRITE(12,'(//,1X,A78,/)') TITLE
+        WRITE(12, *) ' BPIP output is in meters'
 
         !MAIN OUTPUT:
         do i=1,size(oT,1),1
-            write(2,'(/)')
+            write(12,'(/)')
             !HGT
-            write(2,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,2)
-            write(2,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,2)
-            write(2,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,2)
-            write(2,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,2)
-            write(2,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,2)
-            write(2,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,2)
+            write(12,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,2)
+            write(12,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,2)
+            write(12,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,2)
+            write(12,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,2)
+            write(12,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,2)
+            write(12,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,2)
             !WID
-            write(2,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,3)
-            write(2,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,3)
-            write(2,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,3)
-            write(2,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,3)
-            write(2,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,3)
-            write(2,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,3)
+            write(12,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,3)
+            write(12,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,3)
+            write(12,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,3)
+            write(12,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,3)
+            write(12,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,3)
+            write(12,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,3)
             !LEN
-            write(2,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,4)
-            write(2,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,4)
-            write(2,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,4)
-            write(2,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,4)
-            write(2,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,4)
-            write(2,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,4)
+            write(12,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,4)
+            write(12,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,4)
+            write(12,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,4)
+            write(12,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,4)
+            write(12,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,4)
+            write(12,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,4)
             !XBADJ12
-            write(2,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,5)
-            write(2,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,5)
-            write(2,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,5)
-            write(2,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,5)
-            write(2,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,5)
-            write(2,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,5)
+            write(12,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,5)
+            write(12,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,5)
+            write(12,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,5)
+            write(12,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,5)
+            write(12,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,5)
+            write(12,'(5X,"SO XBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,5)
             !YBADJ12
-            write(2,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,6)
-            write(2,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,6)
-            write(2,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,6)
-            write(2,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,6)
-            write(2,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,6)
-            write(2,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,6)
+            write(12,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,6)
+            write(12,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,6)
+            write(12,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(13:18,6)
+            write(12,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,6)
+            write(12,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,6)
+            write(12,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,6)
         end do
-    close(2)!cierro bpip.out
+    close(12)!cierro bpip.out
 end subroutine
 
-subroutine writeDATE()
+subroutine writeDATE(iounit)
     implicit none
+    integer, intent(in) :: iounit      
     integer :: date_time(8)
     integer :: iyr,imon,iday,ihr,imin,isec
     character(len=12) :: real_clock(3)
@@ -577,12 +594,149 @@ subroutine writeDATE()
     IYR = DATE_TIME(1); IMON = DATE_TIME(2); IDAY = DATE_TIME(3)
     IHR = DATE_TIME(5); IMIN = DATE_TIME(6); ISEC = DATE_TIME(7)
     !header:
-     WRITE (2,'(30X,"BPIP (Dated: 24241 )")')
-     WRITE (2,'(1X, "DATE : ",I2,"/",I2,"/",I4)') IMON, IDAY, IYR
-     WRITE (2,'(1X, "TIME : ",I2,":",I2,":",I2)') IHR, IMIN, ISEC
+     WRITE (iounit,'(30X,"BPIP (Dated: 24241 )")')
+     WRITE (iounit,'(1X, "DATE : ",I2,"/",I2,"/",I4)') IMON, IDAY, IYR
+     WRITE (iounit,'(1X, "TIME : ",I2,":",I2,":",I2)') IHR, IMIN, ISEC
 end subroutine
 
-!subroutine writeSUM()
-!To do..
-!end subroutine
+!!subroutine writeSUM1(fileName,S,B,title)
+!!   implicit none
+!!   integer :: i,j,k
+!!   character(78) , intent(in) :: title
+!!   type(stack)   , intent(in) :: S(:)
+!!   type(building), intent(in) :: B(:)
+!!   character(24),intent(in) :: FileName
+!!
+!!    open(14,file=FileName, action="WRITE")
+!!      WRITE(14,'(1X,A78,/)') TITLE
+!!      !DATE:
+!!      call writeDATE(14)
+!!      WRITE(14,'(1X,A78,/)') TITLE
+!!      WRITE(14,*) "============================"
+!!      WRITE(14,*) "BPIP PROCESSING INFORMATION:"
+!!      WRITE(14,*) "============================"
+!!      !Global options:
+!!      WRITE(14,"(/3X,'The ',A2,' flag has been set for preparing downwash',' related data',10X)") SWTN
+!!      WRITE(14,"('          for a model run utilizing the PRIME algorithm.',/)"                 )
+!!      WRITE(14,"(3X,'Inputs entered in ',A10,' will be converted to ','meters using ')"         ) UNITS
+!!      WRITE(14,"(3X,' a conversion factor of',F10.4,'.  Output will be in meters.',/)"          ) FCONV
+!!      WRITE(14,"(3X,'UTMP is set to ',A4,'.  The input is assumed to be in',' a local')"        ) UTMP
+!!      WRITE(14,"(3x,' X-Y coordinate system as opposed to a UTM',' coordinate system.')"        )
+!!      WRITE(14,"(3x,' True North is in the positive Y',' direction.',/)")
+!!      WRITE(14,'(3X,"Plant north is set to",F7.2," degrees with respect to"," True North.  ")'  ) PNORTH
+!!      WRITE(14,'(//,1X,A78,///)'                                                                ) TITLE
+!!      !
+!!      WRITE(14,*) "=============="
+!!      WRITE(14,*) "INPUT SUMMARY:"
+!!      WRITE(14,*) "=============="
+!!      WRITE(14, '(//,1X,"Number of buildings to be processed :",I4)') size(B) ! NB
+!!      do i=1,size(B)
+!!       WRITE(14,'(//1X,A8," has",I2," tier(s) with a base elevation of",F8.2," ",A10)') B(i)%nombre,size(B(i)%T),B(i)%z0,UNITS
+!!         !TABLE:
+!!         WRITE(14,'(" BUILDING  TIER  BLDG-TIER  TIER   NO. OF      CORNER   COORDINATES")')
+!!         WRITE(14,'("   NAME   NUMBER   NUMBER  HEIGHT  CORNERS        X           Y"/)')
+!!         do j=1,size(B(i)%T)
+!!           WRITE(14,'(1X,A8,I5,5X,I4,4X,F6.2,I6)') B(i)%nombre, j, B(i)%T(j)%id, B(i)%T(j)%h, size(B(i)%T(j)%xy(:,1))
+!!           do k=1, size(B(i)%T(j)%xy(:,1))
+!!              WRITE(14,'(42X,2F12.2, 1X,"meters")') B(i)%T(j)%xy(k,1),B(i)%T(j)%xy(k,2)
+!!              if (mod(int(pnorth),360) /= 0.0 ) then
+!!                  WRITE(14,'(41X,"[",2F12.2,"] meters")') B(i)%T(j)%xy2(k,1),B(i)%T(j)%xy2(k,2)
+!!              endif
+!!           enddo
+!!         enddo
+!!      enddo
+!!      !Stacks table:
+!!      WRITE(14,'(/,1X,"Number of stacks to be processed :",I4,/)') size(S)
+!!      WRITE(14, '("                    STACK            STACK   COORDINATES")')
+!!      WRITE(14, '("  STACK NAME     BASE  HEIGHT          X           Y"/)')
+!!      do i=1,size(S) 
+!!         WRITE(14,'(2X, A8,3X, 2F8.2, 1X, A10)') S(i)%nombre, S(i)%z0, S(i)%h, UNITS
+!!         WRITE(14,'(31X,2F12.2, " meters")') S(i)%xy(1),S(i)%xy(2)
+!!         if (mod(int(pnorth),360) /= 0.0 ) then
+!!             WRITE(14,'(30X,"[",2F12.2,"] meters")') S(i)%xy2(1),S(i)%xy2(2)
+!!         endif
+!!      enddo
+!!      !stack on roof table
+!!      if (ANY( S(:)%isOnRoof) ) then
+!!          WRITE(14,*) ""
+!!          WRITE(14,*) ""
+!!          WRITE(14,*) " The following lists the stacks that have been identified"
+!!          WRITE(14,*) "  as being atop the noted building-tiers."
+!!          WRITE(14,*) "          STACK            BUILDING         TIER"
+!!          do i=1,size(S) 
+!!            if (s(i)%isOnRoof ) then
+!!               WRITE(14,'(10X, A8, I4, 5X, A8, 2(1X, I5))') S(i)%nombre, S(i)%id, S(i)%roofName,S(i)%whichRoof, 1
+!!            end if
+!!          enddo
+!!      else
+!!         WRITE(14,*) ""
+!!         WRITE(14,*) "   No stacks have been detected as being atop"
+!!      endif
+!!     close(14)
+!!end subroutine
+!!
+!!subroutine writeSUM2(fileName,sT,S,B,title)
+!!   implicit none
+!!   integer :: i,j,k
+!!   character(78) , intent(in) :: title
+!!   type(stack)   , intent(in) :: S(:)
+!!   type(building), intent(in) :: B(:)
+!!   character(24),intent(in) :: FileName
+!!
+!!    open(14,FileName, action="WRITE", status="OLD")
+!!
+!!        WRITE(14,*)""
+!!        WRITE(14,*)""
+!!        WRITE(14,*)"                     Overall GEP Summary Table"
+!!        WRITE(14,*)""
+!!        WRITE(14,*)"                          (Units: meters)" 
+!!        WRITE(14,*)""
+!!        WRITE(14,*)""
+!!
+!!        !1021  FORMAT( 10X,'NOTE: The projected width values below are not always'
+!!        !     *      ,/10X,'      the maximum width.  They are the minimum value,'
+!!        !     *      ,/10X,'      valid for the stack in question, to derive the'
+!!        !     *      ,/10X,'      maximum GEP stack height.'/)
+!!        WRITE(14,'(" StkNo:", I3,"  Stk Name:", A8," Stk Ht:",F7.2," Prelim. GEP Stk.Ht:",F8.2,/11x," GEP:  BH:",F7.2,"  PBW:",F8.2, 11X, "  *Eqn1 Ht:",F8.2)'), i,st(i)%stkName, st(i)%stkHeight, st(i)%GEPEQN1, st(i)%GEPSHV! S(i)%nombre, S(i)%h,  st(i)%GEPEQN1, st(i)%GEPSHV !1022
+!!        if (gtnum > 0) then       
+!!          WRITE(14,'("  No. of Tiers affecting Stk:", I3,"  Direction occurred:", F8.2)'),GTNUM,d*10 !gdirs!GTNUM(S), GDIRS(S) !1023
+!!          WRITE(14,'("   Bldg-Tier nos. contributing to GEP:", 10I4)') [mt%id, TLIST2(:TNUM2)]!(GTLIST(S,I), I = 1, GTNUM(S))
+!!          WRITE(14,'(10X,"*adjusted for a Stack-Building elevation difference"," of",F8.2)') st(i)%BaseElevDiff  !1025
+!!          WRITE(14,'(5X,  "Single tier MAX:  BH:",F7.2,"  PBW:",F7.2,"  PBL:",F7.2,"  *Wake Effect Ht:", F8.2/5X,"Relative Coordinates of Projected Width Mid-point: XADJ: ", F7.2,"  YADJ: ",F7.2/5X)'), mt%hgt,mt%wid,mt%len, mt%gsh,mt%xbadj,mt%ybadj !MXPBH(S,D), MXPBW(S,D),MXPBL(S,D), MHWE(S,D), MPADX(S,D),MPADY(S,D)  !1026
+!!        else
+!!           WRITE(14,*) "     No tiers affect this stack."
+!!        endif
+!!     close(14)
+!!end subroutine
+!!!
+!!subroutine writeSUM3(fileName,S,T)
+!!   implicit none
+!!   integer :: i,j,k
+!!   type(stack)   , intent(in) ::  S
+!!   type(tier)    , intent(in) :: mT
+!!   real          , intent(in) :: wdir
+!!   character(24),intent(in) :: FileName
+!!
+!!    open(14,FileName, action="WRITE", status="OLD")
+!!
+!!        WRITE(14,*)""
+!!        WRITE(14,*)""
+!!        WRITE(14,*)"                     Summary By Direction Table"
+!!        WRITE(14,*)""
+!!        WRITE(14,*)"                          (Units:  meters)"
+!!        WRITE(14,*)""
+!!        WRITE(14,*)""
+!!        WRITE(14,*)" Dominate stand alone tiers:"
+!!
+!!
+!!        WRITE(14,'(/1X,"Drtcn: ", F6.2/)') wdir !604
+!!        WRITE(14,'(" StkNo:", I3,"  Stk Name:", A8, 23X,"   Stack Ht:", F8.2)') S%id,S%nombre,S%h !2022
+!!        WRITE(14,'(11X,"      GEP:  BH:",F7.2,"  PBW:",F7.2,"   *Equation 1 Ht:", F8.2)')                                                         !2027
+!!        WRITE(14,'(3X,"Combined tier MAX:  BH:",F7.2,"  PBW:",F7.2,"  PBL:",F7.2,"  *WE Ht:", F8.2/5X,"Relative Coordinates of Projected Width Mid-point: XADJ: ",F7.2,"  YADJ: ",F7.2/5X)'),cT%hgt,ct%wid,ct%L,ct%gsh,mt%xbadj,mt%ybadj !2026
+!!        WRITE(14, '("  No. of Tiers affecting Stk:", I3)')                     !2023  
+!!        WRITE(14, '("   Bldg-Tier nos. contributing to MAX:", 10I4)')          !2024  
+!!
+!!     close(14)
+!!end subroutine
+
 end program
