@@ -46,11 +46,12 @@ double precision, parameter :: deg2rad=pi/180.0
 character(24),    parameter ::   inputFileName="BPIP.INP"
 character(24),    parameter ::  outputFileName="bpip.out"
 character(24),    parameter :: summaryFileName="bpip.sum"
-!setup params
-character (len=10) :: SWTN  ='P ', UNITS ="METERS    ",UTMP  ="UTMN"!SWTN UNITS !UTMP
-real :: FCONV = 1.00, PNORTH=0.00                                   !PNORTH !FCONV
-!indices:
-integer :: i,j,k,d,i1,i2!,dd
+!setup values
+character (len=2)  :: SWTN = 'P '                                              !procesing for: "P":PRIME,"NP": no PRIME
+                                                                               !"ST:"ISCST or "LT": ISCLT algorithms
+character (len=10) :: UNITS="METERS    ",UTMP  ="UTMN"                         !UNITS !UTMP
+real :: FCONV = 1.00                                                           !FCONV (from UNIT to meters)
+real :: PNORTH=0.00                                                            !PNORTH (angle offset)
 !work variables:
 character(78)               :: title                                           !title of the run
 TYPE(building), allocatable :: B(:)                                            !array of buildings
@@ -60,17 +61,19 @@ type(stack)                 :: Si                                              !
 double precision            :: wdir                                            !direccion del viento
 logical                     :: SIZ!,ROOF                                       !struc. influence zone boolean flag
 real                        :: maxGSH,refWID!tmp                               !max GSH and WID encountred (for given stack and wdir)
-integer                     :: mxtrs, gtnum                                   !max tier number found in input file
-real, allocatable   :: DISTMN(:,:),DISTMNS(:,:)                                !distance Matrices: tier-tier, tier-stack 
-! vars used for combine tiers
-type(tier)          :: cT,T1,T2                                                !"combined", "sub-group" and "merge-candidate" Tier
-integer,allocatable :: TLIST(:,:)!TLIST2(:,:)                                  !list of combinable (w/focal) tiers indices
-integer,allocatable :: TLIST2(:)                                               !list of combined tiers ids
-integer             :: TNUM,TNUM2                                              !TNUM= # of combinable tiers, TNUM2=# of actual combined tiers.
-real                :: min_tier_dist                                           !min distance between stack and combined tiers
+integer                     :: mxtrs, gtnum                                    !max tier number found in input file
+real, allocatable           :: DISTMN(:,:),DISTMNS(:,:)                        !distance Matrices: tier-tier, tier-stack 
+!vars used for tier         combination
+type(tier)                  :: cT,T1,T2                                        !"combined", "sub-group" and "merge-candidate" Tier
+integer,allocatable         :: TLIST(:,:)!TLIST2(:,:)                          !list of combinable (w/focal) tiers indices
+integer,allocatable         :: TLIST2(:)                                       !list of combined tiers ids
+integer                     :: TNUM,TNUM2                                      !TNUM= # of combinable tiers, TNUM2=# of actual combined tiers.
+real                        :: min_tier_dist                                   !min distance between stack and combined tiers
 !out tables:
 type(outTable), allocatable :: oTable(:)                                       !output table
 type(stkTable), allocatable :: sTable(:)                                       !stack  table
+!indices:
+integer :: i,j,k,d,i1,i2!,dd
 !INPUT--------------------------------------------------------------------------
 call readINP(inputFileName,B,S,title,mxtrs)                                    !read file & store data in B & S
 
@@ -95,12 +98,12 @@ DO d=1,36                                                                      !
    wdir=d*10.0*deg2rad - pnorth*deg2rad                                        !get wdir [rad] 
    print '("      Wind flow passing", I4," degree direction.")', d*10 
 
-   call rotate_coordinates(B,S,sngl(wdir))                                           !rotate coordinates (T%xy S%xy -> T%xy2 S%xy2)
+   call rotate_coordinates(B,S,sngl(wdir))                                     !rotate coordinates (T%xy S%xy -> T%xy2 S%xy2)
 
    DO i=1,size(S)                                                              !for each stack
      maxGSH=0.0; refWID=0.0
      Si=S(i)
-     gtnum=0 !# of tiers affecting stack
+     gtnum=0  !# of tiers affecting stack
      !Single tiers structs   ---------------------------------------------------
      DO j=1,size(B)                                                            !for each building
         DO k=1,size(B(j)%T)                                                    !for each tier
@@ -136,7 +139,7 @@ DO d=1,36                                                                      !
 
            fT=B(j)%T(k)                                                        !create "focal" tier
            
-           call ListCombinableTiers(fT, B, DISTMN,TLIST,TNUM)                  !list combinable tiers and distances
+           call list_combinable_tiers(fT, B, DISTMN,TLIST,TNUM)                  !list combinable tiers and distances
 
            if ( TNUM > 0 ) then
              do i1=1,TNUM                                                      !on each combinable tier
@@ -153,9 +156,10 @@ DO d=1,36                                                                      !
                       T2=B(TLIST(i2,1))%T(TLIST(i2,2))                         !create candidate tier "T2"
                       T2%L=min(cT%hgt, T2%wid) !line 1213 de bpip orig use T2-L=min(T1hgt,T2wid)
                       if ( T2%hgt >= cT%hgt .and. T2%id /= cT%id ) then        !if T2_hgt >= common hgt, and is not cT
+                              
                          if ( DISTMN(cT%Id,T2%id) < max(T2%L, cT%L)) then      !if dist T2-fT is less than the maxL
 
-                            !call combineTiers(cT,T2)                           !combine common Tier w/ T2 ! (update boundaries)
+                            !"combine" tiers (cT,T2)                           !combine common Tier w/ T2 ! (update boundaries)
                             cT%xmin=min(cT%xmin, T2%xmin) 
                             cT%xmax=max(cT%xmax, T2%xmax)
                             cT%ymin=min(cT%ymin, T2%ymin)
@@ -173,12 +177,12 @@ DO d=1,36                                                                      !
                       cT%len = cT%ymax - cT%ymin                               !update length
                       cT%L   = min(cT%hgt, cT%wid)                             !update "L"
 
-                      min_tier_dist=minval(DISTMNS([fT%id,TLIST2(:TNUM2)],i))
                       !
                       !Here I need to define the Gap Filling Structure (GFS) polygon
                       !and use it to determine if SIZ-L5 distance stack-GFS is satisfied
                       !(could be solved using a "CONVEX HULL" algorithm, for example: Graham Scan Algorithm )
                       !
+                      min_tier_dist=minval(DISTMNS([fT%id,TLIST2(:TNUM2)],i))
 
                       SIZ=          Si%xy2(1) .GE. cT%xmin-0.5*cT%L          !this is how SIZ is defined for comb Tiers
                       SIZ=SIZ .AND. Si%xy2(1) .LE. cT%xmax+0.5*cT%L          !Struc Influence Zone (SIZ)
@@ -208,6 +212,7 @@ DO d=1,36                                                                      !
      oTable(i)%stkName  = Si%nombre
      sTable(i)%stkName  = Si%nombre
      sTable(i)%stkHeight= Si%h
+     !if ( gtnum > 0 ) then         !if ( any_tier_affects_stack_at_this_wdir ) then
      if ( maxGSH /= 0.0 ) then    !if ( any_tier_affects_stack_at_this_wdir ) then
         oTable(i)%tabla(d,1:6)=[ sngl(wdir),mT%hgt,mT%wid,mT%len,mT%xbadj,mT%ybadj ] 
         if ( maxGSH > sTable(i)%GEPEQN1 ) then
@@ -252,13 +257,14 @@ subroutine rotate_coordinates(B,S,wdir) !Calc "new" (rotated) coordinates: xy --
            do k=1,size(B(i)%T(j)%xy(:,1))
               B(i)%T(j)%xy2(k,:)=sngl(matmul(D,B(i)%T(j)%xy(k,:)) ) !projected tiers coordinates
            enddo
-           call calcTierProyectedValues(B(i)%T(j) )                 ! calc tier: xmin,xmax,ymin,ymax
+           call calc_tier_projected_values(B(i)%T(j) )                 ! calc tier: xmin,xmax,ymin,ymax
        enddo
     enddo
 end subroutine
 
-real function DisLin2Point (X0, Y0, X1, Y1, XP, YP)                            !REPLACE of original "DISLIN" procedure
+real function dist_line_point (X0, Y0, X1, Y1, XP, YP)                            !REPLACE of original "DISLIN" procedure
    !computes min distance between side/line defined by (v0,v1), and point (vp).
+   !idea: use meaning of dot prod and cross product to get min dist from two vectors with same origin (v0)
    implicit none
    real, intent(in)    :: x0,x1,y0,y1,xp,yp
    real, dimension(2)  :: v,p,d                                                !side (v), point (p), and v-p vector (d)
@@ -275,44 +281,41 @@ real function DisLin2Point (X0, Y0, X1, Y1, XP, YP)                            !
    else 
        dist=abs(v(1)*p(2)-v(2)*p(1))/mod2v                                     !distance parametric line to point:  |v x p| / |v|
    end if
-   DISLIN2POINT = dist
+   dist_line_point = dist
 end function
 
-real function minDist(xy1,xy2)            
-   !min distance between two polygons
+real function min_dist(xy1,xy2)            
+   !min distance between two polygons, or poly (xy1) to point (xy2)
    real           ,intent(in) :: xy1(:,:), xy2(:,:)
    integer :: i,j,k,n,m
    m=size(xy1(:,1))
    n=size(xy2(:,1))
-   minDist=1e20
+   min_dist=1e20
    do i=1,n
      do j=1,m
        k=mod(j,m)+1
-       minDist=min(minDist,dislin2point( xy1(j,1),xy1(j,2),  xy1(k,1),xy1(k,2), xy2(i,1), xy2(i,2)) )  !new! (faster)
+       min_dist=min(min_dist,dist_line_point(xy1(j,1),xy1(j,2), xy1(k,1),xy1(k,2), xy2(i,1),xy2(i,2)) )  !new! (faster)
      enddo
    enddo
 end function
 
-!logical function point_is_in_poly(point,poly)    result(inTier) 
-logical function isInsideTier(S,T)    result(inTier) 
-    !idea: if point inside poly, then sum of angles from p to consecutive corners (sides) must be == 2*pi
+logical function point_is_in_poly(point,poly)
+    !idea: if point inside poly, then sum of angles from p to consecutive corners (sides) should be == 2*pi
     implicit none
-    !real  :: point(:,:),poly(:,:)
-    type(stack), intent(in) :: S
-    type(tier), intent(in)  :: T
+    double precision  :: point(2)
+    double precision  ::  poly(:,:)
     double precision:: angle_sum=0.0,angle=0.0,signo=1.0,v1_dot_v1,v2_dot_v2
-    double precision:: v1(2), v2(2), p(2)
+    double precision:: v1(2), v2(2)!, p(2)
     integer :: i,j,n!,k
-    p=dble(S%xy)
-    n=size(T%xy(:,1))
+    n=size(poly(:,1))
     do i=1,n
         j=mod(i,n)+1
-        v1=T%xy(i,:)-p
-        v2=T%xy(j,:)-p
+        v1=poly(i,:)-point
+        v2=poly(j,:)-point
         v1_dot_v1=dot_product(v1,v1)
         v2_dot_v2=dot_product(v2,v2) 
-        if (v1_dot_v1 == 0 .or. v2_dot_v2 == 0) then !this would means that v1 or v2 == p
-           inTier=.true. ! or .false.? (something to discus)
+        if (v1_dot_v1 == 0 .or. v2_dot_v2 == 0) then !this would means that v1 or v2 == point
+           point_is_in_poly=.true. ! or .false.? (something to discuss)
            return
          else
            signo = dsign(signo,v1(1)*v2(2)-v1(2)*v2(1))      !sign of 3rd-component v1 x v2 (cross prod)
@@ -320,7 +323,7 @@ logical function isInsideTier(S,T)    result(inTier)
            angle_sum = angle_sum + signo * angle
         end if
     enddo
-    inTier=(ABS(2*pi - ABS(angle)) .LT. 1e-4) 
+    point_is_in_poly=(ABS(2*pi - ABS(angle)) .LT. 1e-4) 
 end function
 
 !STACK IS OVER ROOF? ******************************************************************************
@@ -333,8 +336,7 @@ subroutine check_which_stack_over_roof(S,B)
     DO i=1,size(S)                                                             !for each stack
        DO j=1,size(B)                                                          !for each building
            DO k=1,size(B(j)%T)                                                 !for each tier
-             !if ( point_is_in_poly(S(i)%xy, B(j)%T(k)%xy ) ) then
-             if ( isInsideTier(S(i), B(j)%T(k)) ) then
+             if ( point_is_in_poly(dble(S(i)%xy), B(j)%T(k)%xy ) ) then
                 print '(A10,"=>",A10)',S(i)%nombre, B(j)%nombre
                 S(i)%isOnRoof  = .true.
                 S(i)%whichRoof = (I-1) * MXTRS + J ![j,k] 
@@ -347,7 +349,7 @@ subroutine check_which_stack_over_roof(S,B)
 end subroutine
 
 !BPIP PARAM CALCULATIONS **************************************************************************
-subroutine calcTierProyectedValues(T) !Calculo de XMIN XMAX YMIN YMAX,WID,HGT,LEN,L
+subroutine calc_tier_projected_values(T) !Calculo de XMIN XMAX YMIN YMAX,WID,HGT,LEN,L
     implicit none
     type(tier),intent(inout)   :: T
     T%xmin= minval(T%xy2(:,1)) ; T%xmax=maxval(T%xy2(:,1)) 
@@ -372,7 +374,7 @@ subroutine calc_dist_stacks_tiers(S,B,Matrix)
           if ( S(i)%whichRoof == B(j)%T(k)%id ) then
              Matrix(idt,i) = 0.0
           else
-             Matrix(idt,i) = mindist(sngl(B(j)%T(k)%xy), reshape(sngl(S(i)%xy),[1,2]))  !store min distance between structures
+             Matrix(idt,i) = min_dist(sngl(B(j)%T(k)%xy), reshape(sngl(S(i)%xy),[1,2]))  !store min distance between structures
           end if
    end do 
    end do 
@@ -394,7 +396,7 @@ subroutine calc_dist_tiers(B,Matrix)
       do jj=1,size(B(ii)%T)          !on each other tier
           id2= (ii-1)*mxtrs + jj
           if ( id1 > id2 ) then
-             Matrix(id1,id2) = mindist(sngl(B(i)%T(j)%xy), sngl(B(ii)%T(jj)%xy))!store min distance between structures
+             Matrix(id1,id2) = min_dist(sngl(B(i)%T(j)%xy), sngl(B(ii)%T(jj)%xy))!store min distance between structures
              Matrix(id2,id1) = Matrix(id1,id2)                                  !(symetry)
           end if
         end do 
@@ -405,7 +407,7 @@ subroutine calc_dist_tiers(B,Matrix)
 end subroutine
 
 !MERGE TIERS **************************************************************************************
-subroutine ListCombinableTiers(T,B,DISTMN,TLIST,TNUM)
+subroutine list_combinable_tiers(T,B,DISTMN,TLIST,TNUM)
     implicit none
     type(tier)    ,intent(in)    :: T                                          !"focal" Tier
     type(building),intent(in)    :: B(:)        
@@ -446,6 +448,10 @@ subroutine readINP(inp_file,B,S,title,mxtrs)
           read(1,*) SWTN          !run options 'P', 'NP', 'ST', 'LT'
           read(1,*) UNITS, FCONV  !units        & factor of correction
           read(1,*) UTMP , PNORTH !coord system & initial angle
+
+          if ( SWTN(1:1) == 'S' .or. SWTN(1:1) =='L' ) then
+                  stop 'This version of BPIP only works for PRIME ("P") and NO PRIME ("NP") options.' 
+          end if
           !BUILDINGS:
           read(1,*) nb                              !# buildings
           allocate(B(nb)) 
@@ -544,6 +550,7 @@ subroutine writeOUT(oT,sT,title,outputFileName)
 
         !MAIN OUTPUT:
         do i=1,size(oT,1),1
+          !if ( SWTN(1:1) == 'P' .or. SWTN(1:1) == 'p' .or. SWTN(1:1) == 'n' .or. SWTN(1:1) == 'N' ) then
             write(12,'(/)')
             !HGT
             write(12,'(5X,"SO BUILDHGT ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,2)
@@ -559,6 +566,7 @@ subroutine writeOUT(oT,sT,title,outputFileName)
             write(12,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,3)
             write(12,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,3)
             write(12,'(5X,"SO BUILDWID ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,3)
+          if ( SWTN(1:1) == 'P' .or. SWTN(1:1) == 'p' ) then
             !LEN
             write(12,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(1:6  ,4)
             write(12,'(5X,"SO BUILDLEN ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(7:12 ,4)
@@ -580,6 +588,8 @@ subroutine writeOUT(oT,sT,title,outputFileName)
             write(12,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(19:24,6)
             write(12,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(25:30,6)
             write(12,'(5X,"SO YBADJ    ",a8,6(f8.2))') oT(i)%stKName,oT(i)%tabla(31:36,6)
+          endif
+          !endif
         end do
     close(12)!cierro bpip.out
 end subroutine
