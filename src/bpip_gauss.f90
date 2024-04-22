@@ -110,6 +110,7 @@
       allocate(DISTMN(size(B)*mxtrs,size(B)*mxtrs));  DISTMN=0.0 
       allocate( TLIST(size(B)*mxtrs, 2 ))          ;   TLIST=0    
       allocate(TLIST2(size(B)*mxtrs))              ;  TLIST2=0    
+
       !MAIN---------------------------------------------------------------------------
       
       !Calculate things that have "rotational invariance":
@@ -135,10 +136,10 @@
 
            DO j=1,size(B)                                               !for each building
               DO k=1,size(B(j)%T)                                       !for each tier
+                 !Single tiers structs   ---------------------------------------------------
       
                  fT=B(j)%T(k)                                           !create "focal" tier
       
-                 !Single tiers structs   ---------------------------------------------------
                  !check if stack is inside SIZ
                  SIZ=           Si%xy2(1) .GE. (fT%xmin - 0.5*fT%L)  
                  SIZ=SIZ .AND. (Si%xy2(1) .LE. (fT%xmax + 0.5*fT%L) )
@@ -161,8 +162,12 @@
                        mT=fT                                            !set fT as the max GSH Tier
                     end if
                  endif
-           
-                 !"COMBINED" tiers ----------------------------------------------------------
+
+            END DO!tiers
+         END DO!buildings     
+         DO j=1,size(B)                                               !for each building
+            DO k=1,size(B(j)%T)                                       !for each tier
+                !"COMBINED" tiers ----------------------------------------------------------
 
                  fT=B(j)%T(k)                                           !create "focal" tier
                  call list_combinable_tiers(fT, B, DISTMN,TLIST,TNUM)   !list combinable tiers and distances
@@ -196,7 +201,7 @@
                            endif
                            endif  
                          enddo                                          !
-                                                                        !Once all tiers has been combined w/tC
+                                                                        !Once all tiers has been combined w/cT
                        if ( TNUM2 > 0 ) then                            !if there was at least 1 combined tier
       
                         cT%wid = cT%xmax - cT%xmin                      !update width
@@ -357,7 +362,20 @@
           enddo
           point_is_in_poly=(ABS(2*pi - ABS(angle)) .LT. 1e-4) 
       end function
-      
+
+      !BPIP PARAM CALCULATIONS **************************************************************************     
+      subroutine calc_tier_projected_values(T) 
+          !calculate rotated tier values: XMIN,XMAX,YMIN,YMAX,WID,HGT,LEN,L
+          implicit none
+          type(tier),intent(inout)   :: T
+          T%xmin= minval(T%xy2(:,1)); T%xmax=maxval(T%xy2(:,1)) 
+          T%ymin= minval(T%xy2(:,2)); T%ymax=maxval(T%xy2(:,2)) 
+          T%wid = T%xmax - T%xmin
+          T%len = T%ymax - T%ymin
+          T%hgt = T%h
+          T%L   = min(T%wid, T%hgt)
+      end subroutine
+
       !STACK IS OVER ROOF? ******************************************************************************
       subroutine check_which_stack_over_roof(S,B)
           implicit none
@@ -380,18 +398,7 @@
           enddo
       end subroutine
       
-      !BPIP PARAM CALCULATIONS **************************************************************************
-      subroutine calc_tier_projected_values(T) !Calculo de XMIN XMAX YMIN YMAX,WID,HGT,LEN,L
-          implicit none
-          type(tier),intent(inout)   :: T
-          T%xmin= minval(T%xy2(:,1)) ; T%xmax=maxval(T%xy2(:,1)) 
-          T%ymin= minval(T%xy2(:,2)) ; T%ymax=maxval(T%xy2(:,2)) 
-          T%wid = T%xmax - T%xmin
-          T%len = T%ymax - T%ymin
-          T%hgt = T%h
-          T%L   = min(T%wid, T%hgt)
-      end subroutine
-      !
+      !DISTANCES CALCULATIONS ***************************************************************************
       subroutine calc_dist_stacks_tiers(S,B,Matrix)
          implicit none
          type(stack),intent(in)       :: S(:)        
@@ -548,7 +555,7 @@
          WRITE(12,"(3x,' X-Y coordinate system as opposed to a UTM',' coordinate system.')"        ) 
          WRITE(12,"(3x,' True North is in the positive Y',' direction.',/)")                                 ! 
          WRITE(12,"(3X,'Plant north is set to',F7.2,' degrees with respect to',' True North.  ')"  ) PNORTH ! 0.00
-         WRITE(12,'(////1X,A78,///)') TITLE
+         WRITE(12,'(//1X,A78,///)') TITLE
          !STACK RESULTS
          WRITE(12,"(16X,'PRELIMINARY* GEP STACK HEIGHT RESULTS TABLE')")
          WRITE(12,"(13X,'            (Output Units: meters)',/)")
