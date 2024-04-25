@@ -70,9 +70,9 @@
       !global params:
       double precision, parameter :: pi=3.141593 !3.141592653589793_8
       double precision, parameter :: deg2rad=pi/180.0
-      character(24),    parameter ::   inputFileName="BPIP.INP"
-      character(24),    parameter ::  outputFileName="bpip.out"
-      character(24),    parameter :: summaryFileName="bpip.sum"
+      character(24)               :: INPFILE="bpip.inp"
+      character(24)               :: OUTFILE="bpip.out"
+      character(24)               :: SUMFILE="bpip.sum"
       !setup values
       character (len=2)  :: SWTN = 'P '                                 !procesing for: "P":PRIME,"NP": no PRIME
                                                                         !"ST:"ISCST or "LT": ISCLT algorithms
@@ -100,9 +100,16 @@
       type(outTable), allocatable :: oTable(:)                          !output table
       type(stkTable), allocatable :: sTable(:)                          !stack  table
       !indices:
-      integer :: i,j,k,d,i1,i2!,dd
+      integer :: i,j,k,d,i1,i2,nargs!,dd
+
+      !get input, out and sum file paths from stdin
+      nargs = command_argument_count()
+      if(nargs>=1) CALL get_command_argument(1, INPFILE)
+      if(nargs>=2) CALL get_command_argument(2, OUTFILE)
+      if(nargs>=3) CALL get_command_argument(3, SUMFILE)
+
       !INPUT--------------------------------------------------------------------------
-      call readINP(inputFileName,B,S,title,mxtrs)                       !read file & store data in B & S
+      call readINP(INPFILE,B,S,title,mxtrs)                       !read file & store data in B & S
       
       allocate(oTable(size(S)))                                         !allocate output tabla
       allocate(sTable(size(S)))                                         !allocate stack  tabla
@@ -119,7 +126,7 @@
       call calc_dist_tiers(B,DISTMN)                                    !calc min distance between structures.
       
       !if ( mod(int(pnorth),360) /= 0 ) call rotate_coordinates(B,S,sngl(-pnorth*deg2rad)) 
-      !call writeSUM1(summaryFileName,S,B,title)                        !write 1st part of summary file.
+      !call writeSUM1(SUMFILE,S,B,title)                                !write 1st part of summary file.
       
       DO d=1,36                                                         !for each wdir (c/10 deg)
          
@@ -263,7 +270,7 @@
       END DO!wdir
       
       !OUTPUT:-----------------------------------------------------------------------
-      call writeOUT(oTable,sTable,title,outputFileName)
+      call writeOUT(oTable,sTable,title,OUTFILE)
       
       WRITE(*,'(/,A,/)') ' END OF BPIP RUN.'
       contains
