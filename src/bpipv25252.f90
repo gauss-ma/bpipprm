@@ -9,47 +9,48 @@
 !  *                                                                        *
 !  *                      http://www.epa.gov/scram                          *
 !  *                                                                        *
-!  *                       (!) NON OFFICIAL CODE (!)                        *
 !  **************************************************************************
 !
-!        Programmed by: Ramiro A. Espada  (Lakes Environmental Software)
-!                       email: espada(at)agro.uba.ar  
+!        Programmed by: Ramiro A. Espada  
+!                       Lakes Environmental Software
+!                       email: espada(at)agro.uba.ar
 !
 !  **************************************************************************
 !
 !        Written to: FORTRAN 90 Standards (Free Format)
 !
 !  **************************************************************************
+ 
       program bpipv25252
       IMPLICIT NONE
       !OBJETCS/TYPES ----------------------------------------------------------------
       type tier
         integer :: id
-        double precision,allocatable :: xy(:,:)                         !x-y coordinates     (from INP)
-        real :: h,z0                                                    !height,base hgt     (from INP)
+        double precision,allocatable :: xy(:,:)                         !x-y coordinates (from INP)
+        real :: h,z0                                                    !height,base hgt (from INP)
         !projected (wdir-dependent) variables
         real, allocatable :: xy2(:,:)                                   !rotated coords          (changes on each wdir)
         real :: xmin,xmax,ymin,ymax                                     !boundaries              (changes on each wdir)
         real :: hgt=0,wid=0,len=0.0                                     !height,width,length     (changes on each wdir)
         real :: L=0.0                                                   !L: min{ wid , hgt }     (changes on each wdir)
-        real :: gsh=0.0, xbadj=0.0, ybadj=0.0                           !GEP Stack Height values (changes on each stack & wdir)
+        real :: gsh=0.0, xbadj=0.0, ybadj=0.0                           !GEP Stack Height Values (changes on each stack & wdir)
       endtype
       
       type building
-        character(8)           :: bldName                               !name
-        real                   :: z0                                    !base elevation (z0)
-        type(tier),allocatable :: t(:)                                  !tiers
+        character(8)            :: bldName                              !name                (from INP)
+        real                    :: z0                                   !base elevation (z0) (from INP)
+        type(tier), allocatable :: t(:)                                 !tiers                    
       endtype
       
       type stack
         integer          :: id
-        character(8)     :: stkName
-        real             :: z0, h                                       !base elev (z0) and stack height
-        double precision :: xy(2)                                       !stack coords (input)
+        character(8)     :: stkName                                     !stack name
+        real             :: z0, h                                       !base elev. (z0) and stack height
+        double precision :: xy(2)                                       !stack coords (from INP)
         real             :: xy2(2)                                      !stack coords (rotated)
+
         logical          :: isOnRoof =.false.                           !boolean flag that states if stack is atop of a building
         integer          :: whichRoof=0                                 !id to the roof where this stack is placed
-        character(8)     :: roofName =""                                !building name of where stack is placed
       endtype
       
       type outTable  !output table
@@ -68,15 +69,16 @@
       endtype
 
       type smryData  !data for summary report
-        type(stack)  :: s                           !stack
-        type(tier)   :: sT(36),cT(36)               !max. GSH single/combined tier on each direction
-        integer      :: Bid(36),Tid(36)             !building name, id and tier id
+        type(tier)   :: sT(36),cT(36)               !max. GSH single & combined tier for each direction
+        integer      :: Bid(36),Tid(36)             !building and tier id that affects single tiers max gep on each wdir
+        integer      :: gtlist(36,10)               !list of tiers contributing to maxGEP for combined tiers
+        integer      :: gtnum(36)                   !#of combined-tiers affecting stack for each wdir.
       endtype
 
       !VARIABLES----------------------------------------------------------------------
       !global params:
-      double precision, parameter :: pi=3.141593 !3.141592653589793_8
-      double precision, parameter :: deg2rad=pi/180.0, rad2deg=1/deg2rad
+      double precision, parameter :: pi=3.141593, pi2=6.28318530718_8 !3.141592653589793_8
+      double precision, parameter :: deg2rad=pi/180.0, rad2deg=1.0/deg2rad
       character(24)               :: INPFILE="bpip.inp"
       character(24)               :: OUTFILE="bpip.out"
       character(24)               :: SUMFILE="bpip.sum"
@@ -99,12 +101,9 @@
       real, allocatable           :: DISTMN(:,:),DISTMNS(:,:)           !distance Matrices: tier-tier, tier-stack 
       !vars used for tier combination
       type(tier)                  :: cT,T1,T2                           !"combined", "sub-group" and "merge-candidate" Tier
-      integer, allocatable        :: LIST(:)
       integer,allocatable         :: TLIST(:,:)!TLIST2(:,:)             !list of combinable (w/focal) tiers indices
-      integer,allocatable         :: TLIST2(:)                          !list of combined tiers ids
-      integer                     :: TNUM,TNUM2                         !TNUM= # of combinable tiers, TNUM2=# of actual combined tiers.
-      integer,allocatable         :: GEPLIST(:)                         !list of combined tiers ids
-      integer                     :: gtnum
+      integer,allocatable         :: TLIST2(:),mtlist(:)               !list of combined tiers ids
+      integer                     :: TNUM,TNUM2,mtnum                  !TNUM= # of combinable tiers, TNUM2=# of actual combined tiers.
       real                        :: MNTDIST !min_tier_dist             !min distance between stack and combined tiers
       !out tables:
       type(outTable), allocatable  :: oTable(:)                          !output table
@@ -112,43 +111,42 @@
       type(stkTable), allocatable  :: sTable(:)                          !stack  table
       !indices:
       integer :: i,j,k,d,i1,i2,nargs!,dd
-
+      
       !get input, out and sum file paths from stdin
       nargs = command_argument_count()
       if(nargs>=1) CALL get_command_argument(1, INPFILE)
       if(nargs>=2) CALL get_command_argument(2, OUTFILE)
       if(nargs>=3) CALL get_command_argument(3, SUMFILE)
-
+      
       !INPUT--------------------------------------------------------------------------
       call readINP(INPFILE,B,S,title,mxtrs)                       !read file & store data in B & S
       
-      print*,"SIZES:",size(B), size(S),mxtrs
       !Memory allocations and initializations:
       allocate(sTable(size(S)))                                       !allocate stack   table
       allocate(oTable(size(S)))                                       !allocate output  table
       allocate(summary(size(S)))                                      !allocate summary table
-
+      
       allocate(DISTMNS(size(B)*mxtrs,size(S)))     ; DISTMNS=0.0 
       allocate(DISTMN(size(B)*mxtrs,size(B)*mxtrs));  DISTMN=0.0 
       allocate( TLIST(size(B)*mxtrs, 2 ))          ;   TLIST=0    
       allocate(TLIST2(size(B)*mxtrs))              ;  TLIST2=0    
-      allocate(GEPLIST(size(B)*mxtrs))             ;GEPLIST=0    
-
-      allocate(list(size(B)*mxtrs)) 
+      allocate(mtlist(size(B)*mxtrs))              ; mtlist=0    
+      
       !MAIN---------------------------------------------------------------------------
       
       !Calculate things with "rotational invariance":
-      !@call check_which_stack_over_roof(S,B)                             !check which stacks are placed over a roof.
+      call check_which_stack_over_roof(S,B)                             !check which stacks are placed over a roof.
       call calc_dist_stacks_tiers(S,B,DISTMNS)                          !calc min distance between stacks and tiers.
       call calc_dist_tiers(B,DISTMN)                                    !calc min distance between structures.
+      
       !if ( mod(int(pnorth),360) /= 0 ) call rotate_coordinates(B,S,sngl(-pnorth*deg2rad)) 
-
+      
       DO d=1,36                                                         !for each wdir (c/10 deg)
          print '(6X,"Wind flow passing", I4," degree direction.")',d*10 
-
          wdir=d*10.0*deg2rad - pnorth*deg2rad                           !get wdir [rad] 
          call rotate_coordinates(B,S,sngl(wdir))                        !rotate coordinates (T%xy S%xy -> T%xy2 S%xy2)
-      
+ 
+
          DO i=1,size(S)                                                 !for each stack
            maxGSH=0.0; refWID=0.0                                       !reset maxGSH and refWID values
 
@@ -168,31 +166,35 @@
                  !SIZ=SIZ .AND. (y_stack .LE. (T%ymax + 5.0*T%L) )      !(old)
                  if ( SIZ ) then 
 
-                    call addTierToList(sTable(i),fT%id)                 !add tier to the list of affecting tiers to stack
-                    
+                    !call addTierToList(sTable(i),fT%id)                 !add tier to the list of affecting tiers to stack
+
                     fT%gsh   = fT%z0 + fT%hgt - Si%z0 + 1.5*fT%L        !GHS   [ Equation 1 (GEP, page 6) ]
                     fT%ybadj = Si%xy2(1) - (fT%xmin + fT%wid * 0.5)     !YBADJ = XPSTK - (XMIN(C) + TW*0.5)
                     fT%xbadj = fT%ymin - Si%xy2(2)                      !XBADJ = YMIN(C) - YPSTK             
-      
+
+
                     GSH=ft%gsh > maxGSH
                     GSH=GSH.or.(fT%gsh == maxGSH .and. fT%wid < refWid)
                     if ( GSH ) then                                     !check if this tier has > GHS than previous ones
-                       maxGSH=fT%gsh                                    !set new ref GSH value
+                       maxGSH=fT%gsh                                    !set new refGSH value
                        refWID=fT%wid                                    !store its WID
                        mT=fT                                            !set fT as the max GSH Tier
+                       mtlist=mt%id
+                       mtnum=1
                     end if
-                    !!!@@test
-                    if (fT%gsh > summary(i)%sT(d)%gsh) then
-                       summary(i)%sT(d)=fT                              !save maxGSH tier on summary table
-                       summary(i)%BId(d)=j                              !save maxGSH tier on summary table
-                       summary(i)%TId(d)=k                              !save maxGSH tier on summary table
+
+                    !!!@@(summary report): greatest GEP single tier.
+                    if ( fT%gsh > summary(i)%sT(d)%gsh ) then
+                       summary(i)%sT(d) = fT                            !save maxGSH tier on summary table
+                       summary(i)%BId(d)= j                             !save maxGSH tier on summary table
+                       summary(i)%TId(d)= k                             !save maxGSH tier on summary table
                     endif
-                    !!!@@test
+                    !!!@@(summary report)
                  endif
 
               END DO!tiers
            END DO!buildings     
-           
+
            !Combined tiers ----------------------------------------------------------
            DO j=1,size(B)                                               !for each building
               DO k=1,size(B(j)%T)                                       !for each tier
@@ -202,12 +204,12 @@
                 if ( TNUM > 0 ) then
                    do i1=1,TNUM                                         !on each combinable tier
                       T1=B( TLIST(i1,1))%T( TLIST(i1,2) )               !create "subgrup" tier "T1"
-      
+           
                       if ( T1%hgt < fT%hgt .or. T1%id == fT%id ) then   !subgroup's common hgt should be < focal tier hgt
                          cT     = fT                                    !init. common ("combined") tier "cT"
                          cT%hgt = T1%hgt                                !use T1_hgt as "common subgroup height"
                          cT%L   = min(cT%hgt, cT%wid)                   !update L
-      
+           
                          TNUM2=0                                        !reset counter of combined tiers (tnum2) to 0
                          TLIST2=0                                       !reset list of combined tiers (tlist2) to 0
                          do i2=1,TNUM                                   !on each combinable candidate tier
@@ -215,32 +217,32 @@
                            T2%L=min(cT%hgt, T2%wid)                     !use T2-L=min(T1hgt,T2wid) (line 1213 of original code)
                            if (T2%hgt>=cT%hgt .and. T2%id/= cT%id) then !combine condition 1) T2_hgt >= common hgt, and is not fT
                            if (DISTMN(cT%Id,T2%id)<max(T2%L,cT%L)) then !combine condition 2) dist T2-fT is less than the maxL
-      
+           
                               !"combine" tiers (cT,T2)                  !combine common Tier w/ T2 ! (update boundaries)
                               cT%xmin=min(cT%xmin, T2%xmin) 
                               cT%xmax=max(cT%xmax, T2%xmax)
                               cT%ymin=min(cT%ymin, T2%ymin)
                               cT%ymax=max(cT%ymax, T2%ymax)
-      
+           
                               TNUM2=TNUM2+1                             !increment counter of combined tiers (tnum2)
                               TLIST2(TNUM2)=T2%id                       !ad T2 id to list of combined tiers (TLIST2)
                            endif
                            endif  
                          enddo                                          !
-                                                                        !Once all tiers has been combined w/cT
+                           !Once all tiers has been combined w/cT
                        if ( TNUM2 > 0 ) then                            !if there was at least 1 combined tier
-      
+           
                         cT%wid = cT%xmax - cT%xmin                      !update width
                         cT%len = cT%ymax - cT%ymin                      !update length
                         cT%L   = min(cT%hgt, cT%wid)                    !update "L"
-      
+
                         !!
                         !!Here I need to define the Gap Filling Structure (GFS) polygon
                         !!and use it to determine if SIZ-L5 distance stack-GFS is satisfied
                         !!(could be solved using a "CONVEX HULL" algorithm, for example: Graham Scan Algorithm )
                         !!
                        MNTDIST=minval(DISTMNS([fT%id,TLIST2(:TNUM2)],i))!min dist from stack to all combined tiers
-      
+
                         !check if stack is inside combined SIZ
                         SIZ=          Si%xy2(1) .GE. cT%xmin-0.5*cT%L   !this is how SIZ is defined for comb Tiers
                         SIZ=SIZ .AND. Si%xy2(1) .LE. cT%xmax+0.5*cT%L   !Struc Influence Zone (SIZ)
@@ -248,24 +250,28 @@
                         SIZ=SIZ .AND. MNTDIST <= cT%L*5.0               !any of tiers combined is closer than cT%L*5.0 from stack
 
                         if (SIZ) then                                   !check if is in SIZ
-      
+
                           cT%gsh  =cT%z0 + cT%hgt - Si%z0 + 1.5*cT%L     !GSH    [ Equation 1 (GEP, page 6) ]
                           cT%ybadj=Si%xy2(1) - (cT%xmin + cT%wid*0.5)    !YBADJ = XPSTK - (XMIN(C) + TW*0.5 )
                           cT%xbadj=cT%ymin - Si%xy2(2)                   !XBADJ = YMIN(C) - YPSTK
-      
+
                           GSH=ct%gsh > maxGSH
                           GSH=GSH .or. ( cT%gsh == maxGSH .and. cT%wid < refWid)
                           if ( GSH ) then                                !check if comb tier has > GHS than previous ones
                              maxGSH=cT%gsh                                 !set new ref GSH value
                              refWID=cT%wid                                 !store its WID
-                             mT=cT                                         !set cT as the max GSH Tier                                                 
+                             mT=cT                                         !set cT as the max GSH Tier                   
+                             mtlist=tlist2
+                             mtnum =tnum2
                           end if !GSH                                    
 
-                          !!!@@test
+                          !!!@@(summary report): greatest GEP combined tiers
                           if (cT%gsh > summary(i)%cT(d)%gsh) then
-                          summary(i)%cT(d)=cT                           !save maxGSH tier on summary table
+                             summary(i)%cT(d)=cT                           !save maxGSH tier on summary table
+                             summary(i)%gtlist(d,:)=[ft%id,tlist2(1:9)]    !
+                             summary(i)%gtnum(d)=tnum2+1
                           endif
-                          !!!@@test
+                          !!!@@(summary report)
 
                         endif !SIZ
                        endif!TNUM2>0
@@ -274,7 +280,6 @@
                 endif!TNUM>0
               END DO!tiers
            END DO!buildings
- 
 
            !Add results to Out-Table/Stk-Table
            oTable(i)%stkName  = Si%stkName
@@ -282,15 +287,19 @@
            sTable(i)%stkHeight= Si%h
            if ( maxGSH /= 0.0 ) then               !if ( any_tier_affects_stack_at_this_wdir ) then
               oTable(i)%tabla(d,1:6)=[ sngl(wdir),mT%hgt,mT%wid, mT%len,mT%xbadj,mT%ybadj ] 
-
+           
               if ( maxGSH > sTable(i)%GEPEQN1 ) then
                  sTable(i)%BaseElevDiff = Si%z0 - mT%z0
                  sTable(i)%GEPEQN1      = mT%gsh 
                  sTable(i)%GEPSHV       = max(65.0, mT%gsh)
-
+           
+                 !!@@(summary report)
                  sTable(i)%gepbh = mT%hgt            !for .sum report
                  sTable(i)%gepbw = mT%wid            !for .sum report
-                 stable(i)%gtdir = wdir*rad2deg      !
+                 stable(i)%gtdir =sngl(wdir*rad2deg) !for .sum report
+                 sTable(i)%gtnum = mtnum            !for .sum report
+                 sTable(i)%tlist = mtlist           !for .sum report
+                 !!@@(summary report)
               endif
 
            else   !no tier affects this stack at this wdir
@@ -378,35 +387,38 @@
          enddo
       end function
       
-      logical function point_is_in_poly(point,poly)
-          !idea: if point inside poly, then sum of angles from p to consecutive corners (sides) should be == 2*pi
-          implicit none
-          double precision :: point(2)
-          double precision :: poly(:,:)
-          double precision :: angle_sum=0.0,angle=0.0,signo=1.0
-          double precision :: v1_dot_v1,v2_dot_v2
-          double precision :: v1(2), v2(2)!, p(2)
-          integer :: i,j,n!,k
-          n=size(poly(:,1))
-          do i=1,n
-              j=mod(i,n)+1
-              v1=poly(i,:)-point
-              v2=poly(j,:)-point
-              v1_dot_v1=dot_product(v1,v1)
-              v2_dot_v2=dot_product(v2,v2) 
-              if ( v1_dot_v1 == 0 .or. v2_dot_v2 == 0 ) then !this would means that v1 or v2 == point
-               !point_is_in_poly=.false.! or .true.? (something to discuss)
-               angle_sum=-999.9
-               exit !return
-              else
-               signo=dsign(signo,v1(1)*v2(2)-v1(2)*v2(1))      !sign of 3rd-component v1 x v2 (cross prod)
-               angle=dacos(dot_product(v1,v2)/sqrt(v1_dot_v1*v2_dot_v2))
-               angle_sum = angle_sum + signo * angle
-              end if
-          enddo
-          !print '("angle: ",F7.2)',angle_sum
-          point_is_in_poly=(ABS(2*pi - ABS(angle_sum)) .LT. 1e-4) 
-      end function point_is_in_poly
+     logical function point_is_in_poly(point,poly)
+         !idea: if point inside poly, then sum of angles from p to consecutive corners (sides) should be == 2*pi
+         implicit none
+         double precision, intent(in) :: point(2)
+         double precision, intent(in) :: poly(:,:)
+         double precision :: angle_sum=0.0,angle=0.0,signo=1.0
+         double precision :: v1_dot_v1,v2_dot_v2
+         double precision :: v1(2), v2(2)!, p(2)
+         integer :: i,j,n!,k
+
+         point_is_in_poly=.false.
+
+         n=size(poly(:,1))
+         do i=1,n
+             j=mod(i,n)+1
+             v1=poly(i,:) - point
+             v2=poly(j,:) - point
+             v1_dot_v1=dot_product(v1,v1)
+             v2_dot_v2=dot_product(v2,v2) 
+             if ( v1_dot_v1 == 0 .or. v2_dot_v2 == 0 ) then !this would means that v1 or v2 == point
+              !point_is_in_poly=.false.! or .true.? (something to discuss)
+              angle_sum=-999.9
+              exit
+             else
+              signo=dsign(signo,v1(1)*v2(2)-v1(2)*v2(1))                 !sign of 3rd-component v1 x v2 (cross prod)
+              angle=dacos(dot_product(v1,v2)/sqrt(v1_dot_v1*v2_dot_v2))
+              angle_sum = angle_sum + signo * angle
+             end if
+         enddo
+         point_is_in_poly=(abs( pi2 - abs(angle_sum) ) .lt. 1e-4) 
+     end function point_is_in_poly
+
 
       !BPIP PARAM CALCULATIONS **************************************************************************     
       subroutine calc_tier_projected_values(T) 
@@ -427,26 +439,42 @@
           type(stack)   ,intent(inout) :: S(:)
           type(building),intent(in)    :: B(:)        
           integer                      :: i,j,k
-          logical :: check
+          double precision              :: point(2)
+          double precision, allocatable :: poly(:,:)
+          double precision :: xmin,xmax,ymin,ymax
           print '("Detect if a stack is on top of a roof..")'
-          do j=1,size(B)                                            !for each building
-          do i=1,size(S)                                            !for each stack
-             !do k=1,size(b(j)%t)                                   !for each tier
-             k=1
-             !check=point_is_in_poly(S(i)%xy,B(j)%T(k)%xy)
-             check=point_is_in_poly(dble(S(i)%xy),B(j)%T(k)%xy) 
-             if ( check ) then
-                print '(A10,"=>",A10)',S(i)%stkName, B(j)%bldName
-                !print*, S(i)%xy(:)
-                S(i)%isOnRoof  = .true.
-                S(i)%whichRoof = (j-1) * MXTRS + k ![j,k] 
-                S(i)%roofName  = B(j)%bldName
-                !cycle!exit!return!
-             end if
-             !end do
-             end do
-          end do
 
+          do j=1,size(B)                                           !for each building
+          !do k=1,size(B(j)%T)
+          k=1
+          if ( allocated(poly) )  deallocate(poly);
+          allocate(poly(size(B(j)%T(k)%xy(:,1)),2))
+          poly=B(j)%T(k)%xy(:,:)
+          xmin=minval(poly(:,1)); xmax=maxval(poly(:,1)) 
+          ymin=minval(poly(:,2)); ymax=maxval(poly(:,2)) 
+
+          do i=1,size(S)                                           !for each stack
+             if ( .not. S(i)%isOnRoof ) then !A stack should't be atop of >1 building at a time
+                point=S(i)%xy(:)
+
+                !Quick-check: (point whithin min-max of poly)
+                if ( point(1) >= xmin .and. point(1) <= xmax )then
+                if ( point(2) >= ymin .and. point(2) <= ymax )then
+
+                   !if ( point_is_in_poly(point,poly) ) then
+                   !   print '(A10,"=>",A10)',S(i)%stkName, B(j)%bldName
+                      S(i)%isOnRoof  = .true.
+                      S(i)%whichRoof = j !int((B(j)%T(k)%id+1) /mxtrs)
+                   !else
+                   !   continue
+                   !end if
+                end if
+                end if
+
+             end if
+          end do
+          !end do
+          end do
       end subroutine
       
       !DISTANCES CALCULATIONS ***************************************************************************
@@ -718,7 +746,6 @@
             WRITE(14,"(3x,' X-Y coordinate system as opposed to a UTM',' coordinate system.')"        )
             WRITE(14,"(3x,' True North is in the positive Y',' direction.',/)")
             WRITE(14,'(3X,"Plant north is set to",F7.2," degrees with respect to"," True North.  ",////)') PNORTH
-            !WRITE(14,'(//,1X,A78,/,/)'                                                                 ) !TITLE
             !
             WRITE(14,*) "=============="
             WRITE(14,*) "INPUT SUMMARY:"
@@ -746,9 +773,9 @@
             do i=1,size(S) 
                WRITE(14,'(2X, A8,3X, 2F8.2, 1X, A10)') S(i)%stkName, S(i)%z0, S(i)%h, UNITS
                WRITE(14,'(31X,2F12.2, " meters")') S(i)%xy(1),S(i)%xy(2)
-               !if (mod(int(pnorth),360) /= 0.0 ) then
-               !    WRITE(14,'(30X,"[",2F12.2,"] meters")') S(i)%xy2(1),S(i)%xy2(2)
-               !endif
+               if (mod(int(pnorth),360) /= 0.0 ) then
+                   WRITE(14,'(30X,"[",2F12.2,"] meters")') S(i)%xy2(1),S(i)%xy2(2)
+               endif
             enddo
             !stack on roof table
             if (ANY( S(:)%isOnRoof) ) then
@@ -756,7 +783,7 @@
                 WRITE(14,'("          STACK            BUILDING         TIER",/,9X," NAME      NO.    NAME        NO.  NO.")')
                 do i=1,size(S) 
                   if ( s(i)%isOnRoof ) then
-                     WRITE(14,'(10X, A8, I4, 5X, A8, 2(1X, I5))') S(i)%stkName, S(i)%id, S(i)%roofName,S(i)%whichRoof, 1
+                     WRITE(14,'(10X, A8, I4, 5X, A8, 2(1X, I5))') S(i)%stkName, S(i)%id, B(S(i)%whichRoof)%bldName,S(i)%whichRoof, 1
                   end if
                 enddo
             else
@@ -765,21 +792,21 @@
             endif
 
            !-----------
-           !Part 2: GEP stack summary (need stack table)
+           !Part 2: Overall MAX GEP stack summary (only needs stack table)
            WRITE(14,'(//,21X,"Overall GEP Summary Table",/,26X,"(Units: meters)")') 
            do i=1,size(St)
               WRITE(14,'(//," StkNo:", I3,"  Stk Name:", A8," Stk Ht:",F7.2," Prelim. GEP Stk.Ht:",F8.2)') i,st(i)%stkName,st(i)%stkHeight,st(i)%GEPSHV
-              WRITE(14,'(12X,"GEP:  BH:",F7.2,"  PBW:",F8.2, 11X,"  *Eqn1 Ht:",F8.2)') st(i)%gepbh,st(i)%gepbw,st(i)%GEPEQN1                                                  !1022
+              WRITE(14,'(12X,"GEP:  BH:",F7.2,"  PBW:",F8.2, 11X,"  *Eqn1 Ht:",F8.2)') st(i)%GEPBH,st(i)%GEPBW,st(i)%GEPEQN1                                                  !1022
               if ( st(i)%gtnum >= 0) then       
                 WRITE(14,'(10X,"*adjusted for a Stack-Building elevation difference"," of",F8.2)') st(i)%BaseElevDiff      !1025
-                WRITE(14,'("  No. of Tiers affecting Stk:", I3,"  Direction occurred:", F8.2)') st(i)%GTNUM,st(i)%gtdir    !1023
-                WRITE(14,'("   Bldg-Tier nos. contributing to GEP:", 10I4)') [ (st(i)%tlist(j), j=1, st(i)%gtnum) ]        !1024
+                WRITE(14,'("  No. of Tiers affecting Stk:", I3,"  Direction occurred:", F8.2)') st(i)%gtnum,st(i)%gtdir    !1023
+                WRITE(14,'("   Bldg-Tier nos. contributing to GEP:", 10I4)') [ (st(i)%tlist(j), j=1, min(10,st(i)%gtnum)) ]!1024
               else
                  WRITE(14,*) "     No tiers affect this stack."
               endif
            enddo
            !@-----------
-           !@Part 3:
+           !@Part 3: Single tier stack summary (need summary table (single tier only)+ stack table + buildings)
                WRITE(14,'(////,21X,"Summary By Direction Table",/,26X,"(Units:  meters)",/)')
                !-- SINGLE TIERS:      
                WRITE(14,'(" Dominate stand alone tiers:",/)')
@@ -790,15 +817,14 @@
                   WRITE(14,'(" StkNo:", I3,"  Stk Name:", A8, 23X,"   Stack Ht:", F8.2)') S(i)%id,S(i)%stkName,S(i)%h    !2022
                   WRITE(14,'(17X,"GEP:  BH:",F7.2,"  PBW:",F7.2,"   *Equation 1 Ht:", F8.2)') st(i)%gepbh,st(i)%gepbw,st(i)%GEPEQN1  !2027
 
-               if ( st(i)%gtnum /= -9 ) then
-                  WRITE(14,'(5X,"Single tier MAX:  BH:",F7.2,"  PBW:",F7.2,"  PBL:",F7.2,"  *Wake Effect Ht:", F8.2)')fT%hgt,fT%wid,fT%len,ft%gsh
-                  WRITE(14,'(5X,"Relative Coordinates of Projected Width Mid-point: XADJ: ",F7.2,"  YADJ: ",F7.2/5X)')fT%xbadj,fT%ybadj 
-                  WRITE(14,'(10X,"*adjusted for a Stack-Building elevation difference of",F8.2)') st(i)%BaseElevDiff  !S(i)%z0-fT%z0
-                  WRITE(14,'(15X," BldNo:", I3,"  Bld Name:", A8, "  TierNo:", I3)') smt(i)%bId(d),B(smt(i)%bId(d))%bldName,smt(i)%tId(d)
-                  !WRITE(14, '("   Bldg-Tier nos. contributing to MAX:", 10I4)')                              !2024  
-               else
+                  if ( st(i)%gtnum /= -9 ) then
+                     WRITE(14,'(5X,"Single tier MAX:  BH:",F7.2,"  PBW:",F7.2,"  PBL:",F7.2,"  *Wake Effect Ht:", F8.2)')fT%hgt,fT%wid,fT%len,ft%gsh
+                     WRITE(14,'(5X,"Relative Coordinates of Projected Width Mid-point: XADJ: ",F7.2,"  YADJ: ",F7.2/5X)')fT%xbadj,fT%ybadj 
+                     WRITE(14,'(10X,"*adjusted for a Stack-Building elevation difference of",F8.2)') st(i)%BaseElevDiff  !S(i)%z0-fT%z0
+                     WRITE(14,'(15X," BldNo:", I3,"  Bld Name:", A8, "  TierNo:", I3)') smt(i)%bId(d),B(smt(i)%bId(d))%bldName,smt(i)%tId(d)
+                  else
                     WRITE(14,*) '    No single tier affects this stack for this direction.'
-               endif
+                  endif
                enddo
                enddo
 
@@ -812,12 +838,12 @@
                WRITE(14,'(" StkNo:", I3,"  Stk Name:", A8, 23X,"   Stack Ht:", F8.2)') S(i)%id,S(i)%stkName,S(i)%h !2022
                WRITE(14,'(17X,"GEP:  BH:",F7.2,"  PBW:",F7.2,"   *Equation 1 Ht:", F8.2)') st(i)%gepbh,st(i)%gepbw,st(i)%GEPEQN1  !2027
                
-               if ( st(i)%gtnum /= -9 ) then
+               if ( smt(i)%gtnum(d) /= 0) then !st(i)%gtnum /= -9 .and. 
                   WRITE(14,'(3X,"Combined tier MAX:  BH:",F7.2,"  PBW:",F7.2,"  PBL:",F7.2,"  *WE Ht:", F8.2)') ft%hgt,ft%wid,ft%len,ft%gsh
                   WRITE(14,'(5X,"Relative Coordinates of Projected Width Mid-point: XADJ: ",F7.2,"  YADJ: ",F7.2/5X)')ft%xbadj,ft%ybadj !2026
                   WRITE(14,'(10X,"*adjusted for a Stack-Building elevation difference of",F8.2)') st(i)%BaseElevDiff  !S(i)%z0-fT%z0
-                  WRITE(14,'("  No. of Tiers affecting Stk:", I3)')
-                  WRITE(14,'("   Bldg-Tier nos. contributing to MAX:", 10I4)')
+                  WRITE(14,'("  No. of Tiers affecting Stk:", I3)') smt(i)%gtnum(d)
+                  WRITE(14,'("   Bldg-Tier nos. contributing to MAX:", 10I4)') smt(i)%gtlist(d,1:min(10,smt(i)%gtnum(d)))
 
                else
                   WRITE(14,*) '     No combined tiers affect this stack for this direction.'
@@ -833,11 +859,11 @@
          integer        , intent(in)    :: id
 
          if (ANY(id == sT%tlist)) then
-                 continue
+            continue
          else
-                 sT%gtnum=st%gtnum+1
-                 st%tlist(sT%gtnum)=id
-                 print*,sT%stkName,id
+            sT%gtnum=st%gtnum+1
+            st%tlist(sT%gtnum)=id
+            !print*,sT%stkName,id
          end if   
 
       end subroutine
