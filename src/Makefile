@@ -1,15 +1,15 @@
 FC=gfortran
 
-FCFLAGS=-O2 -static -Wall -fcheck=all -g -fbacktrace -fbounds-check -mtune=native -ffpe-trap=invalid,zero,overflow,underflow,denormal -fbacktrace#-fcheck=bounds
+DEBUG=#-g -pg -fbacktrace
+FCFLAGS=-O2 -ffree-line-length-none $(DEBUG) -Wall #-fcheck=bounds #-mtune=native #-fcheck=all-fbounds-check -ffpe-trap=invalid,zero,overflow,underflow,denormal
 
 EXE=../exe
-new_code=bpip_gauss.f90
+new_code=bpipv25252.f90
 v04274_code=Bpipprm_v04274/Bpipprm.for
 v19191_code=Bpipprm_v19191/bpipprm_19191_drft.for
 
-
 all:
-	$(FC) $(new_code) $(FCFLAGS) -o ${EXE}/bpipprm_gauss.exe
+	$(FC) $(new_code) $(FCFLAGS) -o ${EXE}/bpipprm.exe
 v04274:
 	$(FC) $(v04274_code) $(FCFLAGS) -o ${EXE}/Bpipprm.exe
 v19191:
