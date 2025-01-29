@@ -70,9 +70,9 @@
 
       type smryData  !data for summary report
         type(tier)   :: sT(36),cT(36)               !max. GSH single & combined tier for each direction
-        integer      :: Bid(36),Tid(36)             !building and tier id that affects single tiers max gep on each wdir
-        integer      :: gtlist(36,10)               !list of tiers contributing to maxGEP for combined tiers
-        integer      :: gtnum(36)                   !#of combined-tiers affecting stack for each wdir.
+        integer      :: Bid(36)=0,Tid(36)=0         !building and tier id that affects single tiers max gep on each wdir
+        integer      :: gtlist(36,10)=0             !list of tiers contributing to maxGEP for combined tiers
+        integer      :: gtnum(36)=0                 !# of combined-tiers affecting stack for each wdir.
       endtype
 
       !VARIABLES----------------------------------------------------------------------
@@ -163,15 +163,11 @@
                  SIZ=SIZ .AND. (Si%xy2(1) .LE. (fT%xmax + 0.5*fT%L) )
                  SIZ=SIZ .AND. (Si%xy2(2) .GE. (fT%ymin - 2.0*fT%L) )
                  SIZ=SIZ .AND. DISTMNS(fT%id,i) <= 5*fT%L
-                 !SIZ=SIZ .AND. (y_stack .LE. (T%ymax + 5.0*T%L) )      !(old)
+                 !SIZ=SIZ .AND. (Si%xy2(2) .LE. (fT%ymax + 5.0*fT%L) )      !(old)
                  if ( SIZ ) then 
-
-                    !call addTierToList(sTable(i),fT%id)                 !add tier to the list of affecting tiers to stack
-
                     fT%gsh   = fT%z0 + fT%hgt - Si%z0 + 1.5*fT%L        !GHS   [ Equation 1 (GEP, page 6) ]
                     fT%ybadj = Si%xy2(1) - (fT%xmin + fT%wid * 0.5)     !YBADJ = XPSTK - (XMIN(C) + TW*0.5)
                     fT%xbadj = fT%ymin - Si%xy2(2)                      !XBADJ = YMIN(C) - YPSTK             
-
 
                     GSH=ft%gsh > maxGSH
                     GSH=GSH.or.(fT%gsh == maxGSH .and. fT%wid < refWid)
@@ -179,8 +175,8 @@
                        maxGSH=fT%gsh                                    !set new refGSH value
                        refWID=fT%wid                                    !store its WID
                        mT=fT                                            !set fT as the max GSH Tier
-                       mtlist=mt%id
-                       mtnum=1
+                       MTLIST=mt%id
+                       MTNUM=1
                     end if
 
                     !!!@@(summary report): greatest GEP single tier.
@@ -248,7 +244,6 @@
                         SIZ=SIZ .AND. Si%xy2(1) .LE. cT%xmax+0.5*cT%L   !Struc Influence Zone (SIZ)
                         SIZ=SIZ .AND. Si%xy2(2) .GE. cT%ymin-2.0*cT%L   
                         SIZ=SIZ .AND. MNTDIST <= cT%L*5.0               !any of tiers combined is closer than cT%L*5.0 from stack
-
                         if (SIZ) then                                   !check if is in SIZ
 
                           cT%gsh  =cT%z0 + cT%hgt - Si%z0 + 1.5*cT%L     !GSH    [ Equation 1 (GEP, page 6) ]
@@ -256,17 +251,17 @@
                           cT%xbadj=cT%ymin - Si%xy2(2)                   !XBADJ = YMIN(C) - YPSTK
 
                           GSH=ct%gsh > maxGSH
-                          GSH=GSH .or. ( cT%gsh == maxGSH .and. cT%wid < refWid)
+                          GSH=GSH .or. ( cT%gsh == maxGSH .and. cT%wid < refWid )
                           if ( GSH ) then                                !check if comb tier has > GHS than previous ones
-                             maxGSH=cT%gsh                                 !set new ref GSH value
-                             refWID=cT%wid                                 !store its WID
-                             mT=cT                                         !set cT as the max GSH Tier                   
-                             mtlist=tlist2
-                             mtnum =tnum2
-                          end if !GSH                                    
+                             maxGSH=cT%gsh                               !set new ref GSH value
+                             refWID=cT%wid                               !store its WID
+                             mT=cT                                       !set cT as the max GSH Tier                   
+                             MTLIST=tlist2                               !max gsh tiers affecting stack list
+                             MTNUM =tnum2                                !num of tiers contributing to max gsh
+                          end if                                         
 
                           !!!@@(summary report): greatest GEP combined tiers
-                          if (cT%gsh > summary(i)%cT(d)%gsh) then
+                          if ( cT%gsh >= summary(i)%cT(d)%gsh ) then
                              summary(i)%cT(d)=cT                           !save maxGSH tier on summary table
                              summary(i)%gtlist(d,:)=[ft%id,tlist2(1:9)]    !
                              summary(i)%gtnum(d)=tnum2+1
@@ -294,18 +289,20 @@
                  sTable(i)%GEPSHV       = max(65.0, mT%gsh)
            
                  !!@@(summary report)
-                 sTable(i)%gepbh = mT%hgt            !for .sum report
-                 sTable(i)%gepbw = mT%wid            !for .sum report
-                 stable(i)%gtdir =sngl(wdir*rad2deg) !for .sum report
-                 sTable(i)%gtnum = mtnum            !for .sum report
-                 sTable(i)%tlist = mtlist           !for .sum report
+                 sTable(i)%gepbh = mT%hgt            !for sum report
+                 sTable(i)%gepbw = mT%wid            !for sum report (!) este parece estar MAL
+                 stable(i)%gtdir =sngl(wdir*rad2deg) !for sum report
+                 sTable(i)%gtnum = mtnum             !for sum report
+                 sTable(i)%tlist = mtlist            !for sum report
                  !!@@(summary report)
               endif
 
            else   !no tier affects this stack at this wdir
-               sTable(i)%gtnum=-9
-
+                 continue
            endif
+           
+           !if ( summary(i)%gtnum(d) < 2 ) print*,"no combined tiers affects stack",si%stkName,"(",si%id,") for this wdir."
+
          END DO!stacks
       END DO!wdir
       
@@ -797,7 +794,7 @@
            do i=1,size(St)
               WRITE(14,'(//," StkNo:", I3,"  Stk Name:", A8," Stk Ht:",F7.2," Prelim. GEP Stk.Ht:",F8.2)') i,st(i)%stkName,st(i)%stkHeight,st(i)%GEPSHV
               WRITE(14,'(12X,"GEP:  BH:",F7.2,"  PBW:",F8.2, 11X,"  *Eqn1 Ht:",F8.2)') st(i)%GEPBH,st(i)%GEPBW,st(i)%GEPEQN1                                                  !1022
-              if ( st(i)%gtnum >= 0) then       
+              if ( st(i)%gtnum > 0) then       
                 WRITE(14,'(10X,"*adjusted for a Stack-Building elevation difference"," of",F8.2)') st(i)%BaseElevDiff      !1025
                 WRITE(14,'("  No. of Tiers affecting Stk:", I3,"  Direction occurred:", F8.2)') st(i)%gtnum,st(i)%gtdir    !1023
                 WRITE(14,'("   Bldg-Tier nos. contributing to GEP:", 10I4)') [ (st(i)%tlist(j), j=1, min(10,st(i)%gtnum)) ]!1024
@@ -806,7 +803,7 @@
               endif
            enddo
            !@-----------
-           !@Part 3: Single tier stack summary (need summary table (single tier only)+ stack table + buildings)
+           !@Part 3a: Single tier stack summary (need summary table (single tier only)+ stack table + buildings)
                WRITE(14,'(////,21X,"Summary By Direction Table",/,26X,"(Units:  meters)",/)')
                !-- SINGLE TIERS:      
                WRITE(14,'(" Dominate stand alone tiers:",/)')
@@ -817,17 +814,18 @@
                   WRITE(14,'(" StkNo:", I3,"  Stk Name:", A8, 23X,"   Stack Ht:", F8.2)') S(i)%id,S(i)%stkName,S(i)%h    !2022
                   WRITE(14,'(17X,"GEP:  BH:",F7.2,"  PBW:",F7.2,"   *Equation 1 Ht:", F8.2)') st(i)%gepbh,st(i)%gepbw,st(i)%GEPEQN1  !2027
 
-                  if ( st(i)%gtnum /= -9 ) then
+                  if ( smt(i)%BId(d) /= 0 ) then
                      WRITE(14,'(5X,"Single tier MAX:  BH:",F7.2,"  PBW:",F7.2,"  PBL:",F7.2,"  *Wake Effect Ht:", F8.2)')fT%hgt,fT%wid,fT%len,ft%gsh
                      WRITE(14,'(5X,"Relative Coordinates of Projected Width Mid-point: XADJ: ",F7.2,"  YADJ: ",F7.2/5X)')fT%xbadj,fT%ybadj 
                      WRITE(14,'(10X,"*adjusted for a Stack-Building elevation difference of",F8.2)') st(i)%BaseElevDiff  !S(i)%z0-fT%z0
                      WRITE(14,'(15X," BldNo:", I3,"  Bld Name:", A8, "  TierNo:", I3)') smt(i)%bId(d),B(smt(i)%bId(d))%bldName,smt(i)%tId(d)
                   else
-                    WRITE(14,*) '    No single tier affects this stack for this direction.'
+                    WRITE(14,*) '    No single tier affects this stack for this direction.'!,st(i)%gtnum
                   endif
                enddo
                enddo
-
+           !@-----------
+           !@Part 3b: Combined tier stack summary (need summary table (combined tier only)+ stack table + buildings)
                !-- COMBINED TIERS:    
                WRITE(14,'(//," Dominant combined buildings:")')
                do d=1,36
@@ -851,21 +849,6 @@
                enddo
                enddo
             close(14)
-      end subroutine
-
-      subroutine addTierToList(sT,id)
-         implicit none
-         type(stkTable) , intent(inout) :: sT
-         integer        , intent(in)    :: id
-
-         if (ANY(id == sT%tlist)) then
-            continue
-         else
-            sT%gtnum=st%gtnum+1
-            st%tlist(sT%gtnum)=id
-            !print*,sT%stkName,id
-         end if   
-
       end subroutine
 
       end program
